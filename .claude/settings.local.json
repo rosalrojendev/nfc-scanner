@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm --version)",
+      "Bash(npx --yes create-next-app@latest . --typescript --tailwind --app --no-src-dir --import-alias \"@/*\" --use-npm --eslint --no-turbopack --yes)",
+      "Bash(npm install *)",
+      "Bash(rm /Users/rojen/Desktop/anchortag/app/page.tsx /Users/rojen/Desktop/anchortag/app/favicon.ico 2>/dev/null; ls /Users/rojen/Desktop/anchortag/app/)",
+      "Bash(npx tsc *)",
+      "Bash(npm run *)"
+    ],
+    "additionalDirectories": [
+      "/Users/rojen/Desktop/anchortag/app"
+    ]
+  }
+}
