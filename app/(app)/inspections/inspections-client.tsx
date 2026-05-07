@@ -5,7 +5,9 @@ import Link from "next/link";
 import { Card, Eyebrow } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Select, Field, Label } from "@/components/ui/input";
+import { SearchField } from "@/components/ui/search-field";
+import { Segmented } from "@/components/ui/segmented";
 import {
   useAnchors,
   useInspections,
@@ -15,13 +17,52 @@ import { formatDate } from "@/lib/utils";
 import { useToast } from "@/components/ui/toast";
 import { useSession } from "@/components/shell/session-provider";
 import { can } from "@/lib/permissions";
-import { ClipboardCheck, Search, Trash2, PencilLine } from "lucide-react";
+import {
+  ClipboardCheck,
+  Trash2,
+  PencilLine,
+  ChevronRight,
+  CheckCircle2,
+  AlertTriangle,
+  AlertOctagon,
+} from "lucide-react";
 import { SubmittedByChip } from "@/components/submitted-by";
+import type { InspectionResult, Inspection } from "@/lib/types";
+
+type ResultFilter = "all" | InspectionResult;
+
+const RESULT_COLOR: Record<InspectionResult, string> = {
+  pass: "var(--color-success)",
+  review: "var(--color-warning)",
+  failed: "var(--color-error)",
+};
+
+function ResultPill({ result }: { result: InspectionResult }) {
+  if (result === "pass")
+    return (
+      <Badge variant="success">
+        <CheckCircle2 size={12} /> Pass
+      </Badge>
+    );
+  if (result === "review")
+    return (
+      <Badge variant="warning">
+        <AlertTriangle size={12} /> Review
+      </Badge>
+    );
+  return (
+    <Badge variant="error">
+      <AlertOctagon size={12} /> Failed
+    </Badge>
+  );
+}
 
 export function InspectionsClient() {
   const inspections = useInspections();
   const anchors = useAnchors();
   const [query, setQuery] = React.useState("");
+  const [result, setResult] = React.useState<ResultFilter>("all");
+  const [inspectorFilter, setInspectorFilter] = React.useState<string>("__all");
   const { notify } = useToast();
   const session = useSession();
   const canLog = can.logInspection(session.role);
@@ -34,6 +75,12 @@ export function InspectionsClient() {
     return m;
   }, [anchors]);
 
+  const inspectorOptions = React.useMemo(() => {
+    const set = new Set<string>();
+    for (const i of inspections) if (i.inspector) set.add(i.inspector);
+    return Array.from(set).sort();
+  }, [inspections]);
+
   const filtered = React.useMemo(() => {
     const q = query.trim().toLowerCase();
     return inspections
@@ -43,15 +90,19 @@ export function InspectionsClient() {
           new Date(b.testDate).getTime() - new Date(a.testDate).getTime(),
       )
       .filter((i) => {
+        if (result !== "all" && i.result !== result) return false;
+        if (inspectorFilter !== "__all" && i.inspector !== inspectorFilter)
+          return false;
         if (!q) return true;
         return (
           i.anchorId.toLowerCase().includes(q) ||
           i.inspector.toLowerCase().includes(q) ||
           i.result.toLowerCase().includes(q) ||
+          i.notes.toLowerCase().includes(q) ||
           (anchorById.get(i.anchorId) || "").toLowerCase().includes(q)
         );
       });
-  }, [inspections, query, anchorById]);
+  }, [inspections, query, anchorById, result, inspectorFilter]);
 
   async function remove(id: string) {
     if (!confirm("Delete this inspection record?")) return;
@@ -63,6 +114,9 @@ export function InspectionsClient() {
     }
   }
 
+  const activeFilters =
+    (result !== "all" ? 1 : 0) + (inspectorFilter !== "__all" ? 1 : 0);
+
   return (
     <>
       <Card>
@@ -72,6 +126,9 @@ export function InspectionsClient() {
             <h1 className="text-xl font-semibold tracking-tight mt-1">
               All inspection records
             </h1>
+            <p className="text-xs text-[var(--color-text-muted)] mt-1">
+              Showing {filtered.length} of {inspections.length}
+            </p>
           </div>
           {canLog ? (
             <Link href="/inspections/new">
@@ -81,25 +138,56 @@ export function InspectionsClient() {
             </Link>
           ) : null}
         </div>
-        <div className="relative">
-          <Search
-            size={18}
-            className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]"
-          />
-          <Input
-            type="search"
-            placeholder="Search by anchor, inspector, or result"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            className="pl-11"
-          />
-        </div>
+        <SearchField
+          value={query}
+          onValueChange={setQuery}
+          placeholder="Search anchor, inspector, notes, or result"
+          aria-label="Search inspections"
+        />
+        <Segmented<ResultFilter>
+          value={result}
+          onChange={setResult}
+          options={[
+            { value: "all", label: "All" },
+            { value: "pass", label: "Pass" },
+            { value: "review", label: "Review" },
+            { value: "failed", label: "Failed" },
+          ]}
+        />
+        <Field>
+          <Label htmlFor="f-inspector">Inspector</Label>
+          <Select
+            id="f-inspector"
+            value={inspectorFilter}
+            onChange={(e) => setInspectorFilter(e.target.value)}
+          >
+            <option value="__all">All inspectors</option>
+            {inspectorOptions.map((i) => (
+              <option key={i} value={i}>
+                {i}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        {activeFilters > 0 || query ? (
+          <button
+            type="button"
+            onClick={() => {
+              setQuery("");
+              setResult("all");
+              setInspectorFilter("__all");
+            }}
+            className="text-xs font-semibold text-[var(--color-primary)] hover:underline justify-self-start"
+          >
+            Reset filters
+          </button>
+        ) : null}
       </Card>
 
       {filtered.length === 0 ? (
-        <Card className="py-10 text-center">
+        <Card className="py-12 text-center">
           <p className="text-[var(--color-text-muted)]">
-            No inspection records match your search.
+            No inspection records match your filters.
           </p>
           {canLog ? (
             <div className="justify-self-center">
@@ -110,69 +198,132 @@ export function InspectionsClient() {
           ) : null}
         </Card>
       ) : (
-        filtered.map((rec) => (
-          <article
-            key={rec.id}
-            className="p-5 rounded-2xl bg-[var(--color-surface)] border border-[var(--color-border)] grid gap-3"
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <strong>
-                  {rec.anchorId} ·{" "}
-                  <span className="text-[var(--color-text-muted)] font-normal">
-                    {anchorById.get(rec.anchorId) || "Unknown anchor"}
-                  </span>
-                </strong>
-                <p className="text-sm text-[var(--color-text-muted)] mt-1">
-                  {formatDate(rec.testDate)} · {rec.inspector}
-                </p>
-                <SubmittedByChip
-                  name={rec.submittedByName}
-                  role={rec.submittedByRole}
-                  className="mt-1"
-                />
-              </div>
-              {rec.result === "pass" ? (
-                <Badge variant="success">Pass</Badge>
-              ) : rec.result === "review" ? (
-                <Badge variant="warning">Review</Badge>
-              ) : (
-                <Badge variant="error">Failed</Badge>
-              )}
-            </div>
-            {rec.notes ? (
-              <p className="text-sm text-[var(--color-text-muted)]">
-                {rec.notes}
-              </p>
-            ) : null}
-            <div className="flex items-center gap-2 justify-end">
-              <Link href={`/anchors/${encodeURIComponent(rec.anchorId)}`}>
-                <Button size="sm" variant="ghost">
-                  Open anchor
-                </Button>
-              </Link>
-              {canEdit ? (
-                <Link
-                  href={`/inspections/new?id=${encodeURIComponent(rec.id)}`}
-                >
-                  <Button size="sm">
-                    <PencilLine size={14} /> Edit
-                  </Button>
-                </Link>
-              ) : null}
-              {canDelete ? (
-                <Button
-                  size="sm"
-                  variant="danger"
-                  onClick={() => remove(rec.id)}
-                >
-                  <Trash2 size={14} /> Delete
-                </Button>
-              ) : null}
-            </div>
-          </article>
-        ))
+        <div className="grid gap-3">
+          {filtered.map((rec) => (
+            <InspectionRow
+              key={rec.id}
+              rec={rec}
+              anchorLabel={anchorById.get(rec.anchorId)}
+              canEdit={canEdit}
+              canDelete={canDelete}
+              onDelete={remove}
+            />
+          ))}
+        </div>
       )}
     </>
+  );
+}
+
+function InspectionRow({
+  rec,
+  anchorLabel,
+  canEdit,
+  canDelete,
+  onDelete,
+}: {
+  rec: Inspection;
+  anchorLabel?: string;
+  canEdit: boolean;
+  canDelete: boolean;
+  onDelete: (id: string) => void;
+}) {
+  return (
+    <div className="relative group">
+      <Link
+        href={`/anchors/${encodeURIComponent(rec.anchorId)}`}
+        aria-label={`Open anchor ${rec.anchorId}`}
+        className="block focus-visible:outline-none"
+      >
+        <article
+          className="
+            relative overflow-hidden
+            rounded-2xl
+            bg-[var(--color-surface)]
+            border border-[var(--color-border)]
+            shadow-[var(--shadow-sm)]
+            pl-5 pr-4 py-4
+            grid gap-3
+            transition-all duration-200
+            group-hover:-translate-y-0.5
+            group-hover:shadow-[var(--shadow-md)]
+            group-hover:border-[color-mix(in_srgb,var(--color-primary)_30%,var(--color-border))]
+            group-active:translate-y-0
+            group-active:scale-[0.997]
+          "
+        >
+          <div
+            aria-hidden
+            className="absolute left-0 top-3 bottom-3 w-1.5 rounded-r-full"
+            style={{ background: RESULT_COLOR[rec.result] }}
+          />
+          <div className="grid grid-cols-[1fr_auto] items-start gap-3">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <strong className="text-[var(--color-text)]">
+                  {rec.anchorId}
+                </strong>
+                <span className="text-sm text-[var(--color-text-muted)] truncate">
+                  {anchorLabel || "Unknown anchor"}
+                </span>
+                <ResultPill result={rec.result} />
+              </div>
+              <p className="text-xs text-[var(--color-text-muted)] mt-1">
+                <strong className="text-[var(--color-text)] font-semibold">
+                  {formatDate(rec.testDate)}
+                </strong>
+                <span className="mx-1.5 text-[var(--color-text-faint)]">·</span>
+                {rec.inspector}
+              </p>
+              <SubmittedByChip
+                name={rec.submittedByName}
+                role={rec.submittedByRole}
+                className="mt-1.5"
+              />
+              {rec.notes ? (
+                <p className="text-xs text-[var(--color-text-muted)] mt-2 line-clamp-2">
+                  {rec.notes}
+                </p>
+              ) : null}
+            </div>
+            <ChevronRight
+              size={20}
+              className="shrink-0 text-[var(--color-text-faint)] transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-[var(--color-primary)] mt-1"
+              aria-hidden
+            />
+          </div>
+        </article>
+      </Link>
+      {canEdit || canDelete ? (
+        <div
+          className="
+            absolute right-3 bottom-3 flex items-center gap-1
+            opacity-0 group-hover:opacity-100 group-focus-within:opacity-100
+            transition-opacity
+            sm:opacity-100
+          "
+        >
+          {canEdit ? (
+            <Link
+              href={`/inspections/new?id=${encodeURIComponent(rec.id)}`}
+              className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-[var(--color-surface-2)] border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface)]"
+              aria-label="Edit inspection"
+            >
+              <PencilLine size={14} />
+            </Link>
+          ) : null}
+          {canDelete ? (
+            <button
+              type="button"
+              onClick={() => onDelete(rec.id)}
+              className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-[var(--color-error-highlight)] text-[var(--color-error)] hover:opacity-90"
+              aria-label="Delete inspection"
+            >
+              <Trash2 size={14} />
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
   );
 }

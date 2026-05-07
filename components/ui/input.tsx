@@ -8,7 +8,7 @@ export const Input = React.forwardRef<
   <input
     ref={ref}
     className={cn(
-      "w-full min-h-[48px] rounded-[14px] px-4 border border-[var(--color-border)] bg-[var(--color-surface-2)] text-[var(--color-text)] placeholder:text-[var(--color-text-faint)] focus:outline-none focus-visible:ring-0",
+      "w-full min-h-[48px] rounded-[14px] border border-[var(--color-border)] bg-[var(--color-surface-2)] text-[var(--color-text)] placeholder:text-[var(--color-text-faint)] focus:outline-none focus-visible:ring-0",
       className,
     )}
     {...props}
@@ -23,7 +23,7 @@ export const Textarea = React.forwardRef<
   <textarea
     ref={ref}
     className={cn(
-      "w-full min-h-[118px] rounded-[14px] py-[0.95rem] px-4 border border-[var(--color-border)] bg-[var(--color-surface-2)] text-[var(--color-text)] placeholder:text-[var(--color-text-faint)] resize-y",
+      "w-full min-h-[118px] rounded-[14px] border border-[var(--color-border)] bg-[var(--color-surface-2)] text-[var(--color-text)] placeholder:text-[var(--color-text-faint)] resize-y",
       className,
     )}
     {...props}
@@ -38,7 +38,7 @@ export const Select = React.forwardRef<
   <select
     ref={ref}
     className={cn(
-      "w-full min-h-[48px] rounded-[14px] px-4 border border-[var(--color-border)] bg-[var(--color-surface-2)] text-[var(--color-text)] appearance-none",
+      "w-full min-h-[48px] rounded-[14px] border border-[var(--color-border)] bg-[var(--color-surface-2)] text-[var(--color-text)] appearance-none",
       className,
     )}
     {...props}

@@ -4,32 +4,66 @@ import * as React from "react";
 import Link from "next/link";
 import { Card, Eyebrow } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
+import { Select, Label, Field } from "@/components/ui/input";
+import { SearchField } from "@/components/ui/search-field";
 import { Segmented } from "@/components/ui/segmented";
 import { useAnchors } from "@/lib/store";
-import { formatDate } from "@/lib/utils";
+import { formatDate, daysUntil } from "@/lib/utils";
 import type { AnchorStatus } from "@/lib/types";
-import { Search, ChevronRight } from "lucide-react";
+import {
+  ChevronRight,
+  CheckCircle2,
+  AlertTriangle,
+  AlertOctagon,
+} from "lucide-react";
 
 type Filter = "all" | "pass" | "due" | "failed";
+type Sort = "due" | "tested" | "alpha";
 
-function statusBadge(status: AnchorStatus) {
+const STATUS_COLOR: Record<AnchorStatus, string> = {
+  pass: "var(--color-success)",
+  due: "var(--color-warning)",
+  failed: "var(--color-error)",
+};
+
+function StatusPill({ status }: { status: AnchorStatus }) {
   if (status === "pass")
-    return <Badge variant="success">Pass</Badge>;
+    return (
+      <Badge variant="success">
+        <CheckCircle2 size={12} /> Pass
+      </Badge>
+    );
   if (status === "due")
-    return <Badge variant="warning">Due soon</Badge>;
-  return <Badge variant="error">Failed</Badge>;
+    return (
+      <Badge variant="warning">
+        <AlertTriangle size={12} /> Due
+      </Badge>
+    );
+  return (
+    <Badge variant="error">
+      <AlertOctagon size={12} /> Failed
+    </Badge>
+  );
 }
 
 export function AnchorsClient() {
   const anchors = useAnchors();
   const [query, setQuery] = React.useState("");
   const [filter, setFilter] = React.useState<Filter>("all");
+  const [building, setBuilding] = React.useState<string>("__all");
+  const [sort, setSort] = React.useState<Sort>("due");
+
+  const buildings = React.useMemo(() => {
+    const set = new Set<string>();
+    for (const a of anchors) set.add(a.building);
+    return Array.from(set).sort();
+  }, [anchors]);
 
   const filtered = React.useMemo(() => {
     const q = query.trim().toLowerCase();
-    return anchors.filter((a) => {
+    const list = anchors.filter((a) => {
       if (filter !== "all" && a.status !== filter) return false;
+      if (building !== "__all" && a.building !== building) return false;
       if (!q) return true;
       return (
         a.id.toLowerCase().includes(q) ||
@@ -39,7 +73,25 @@ export function AnchorsClient() {
         a.drawing.toLowerCase().includes(q)
       );
     });
-  }, [anchors, query, filter]);
+
+    list.sort((a, b) => {
+      if (sort === "alpha") return a.id.localeCompare(b.id);
+      if (sort === "tested") {
+        const at = a.lastTested ? new Date(a.lastTested).getTime() : 0;
+        const bt = b.lastTested ? new Date(b.lastTested).getTime() : 0;
+        return bt - at;
+      }
+      // due soonest
+      const ad = a.nextDue ? daysUntil(a.nextDue) : 9999;
+      const bd = b.nextDue ? daysUntil(b.nextDue) : 9999;
+      return ad - bd;
+    });
+
+    return list;
+  }, [anchors, query, filter, building, sort]);
+
+  const activeFilters =
+    (filter !== "all" ? 1 : 0) + (building !== "__all" ? 1 : 0);
 
   return (
     <>
@@ -51,22 +103,16 @@ export function AnchorsClient() {
               Search and inspect anchors
             </h1>
           </div>
-          <Badge variant="success">{anchors.length} total</Badge>
+          <Badge variant="default">
+            {filtered.length} of {anchors.length}
+          </Badge>
         </div>
-        <div className="relative">
-          <Search
-            size={18}
-            className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]"
-          />
-          <Input
-            type="search"
-            placeholder="Search anchor ID, building, zone, or drawing"
-            aria-label="Search anchors"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            className="pl-11"
-          />
-        </div>
+        <SearchField
+          value={query}
+          onValueChange={setQuery}
+          placeholder="Search anchor ID, building, zone, or drawing"
+          aria-label="Search anchors"
+        />
         <Segmented<Filter>
           value={filter}
           onChange={setFilter}
@@ -77,59 +123,167 @@ export function AnchorsClient() {
             { value: "failed", label: "Failed" },
           ]}
         />
+        <div className="grid sm:grid-cols-2 gap-3">
+          <Field>
+            <Label htmlFor="f-building">Building</Label>
+            <Select
+              id="f-building"
+              value={building}
+              onChange={(e) => setBuilding(e.target.value)}
+            >
+              <option value="__all">All buildings</option>
+              {buildings.map((b) => (
+                <option key={b} value={b}>
+                  {b}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field>
+            <Label htmlFor="f-sort">Sort by</Label>
+            <Select
+              id="f-sort"
+              value={sort}
+              onChange={(e) => setSort(e.target.value as Sort)}
+            >
+              <option value="due">Due soonest</option>
+              <option value="tested">Most recently tested</option>
+              <option value="alpha">Anchor ID (A → Z)</option>
+            </Select>
+          </Field>
+        </div>
+        {activeFilters > 0 || query ? (
+          <button
+            type="button"
+            onClick={() => {
+              setQuery("");
+              setFilter("all");
+              setBuilding("__all");
+            }}
+            className="text-xs font-semibold text-[var(--color-primary)] hover:underline justify-self-start"
+          >
+            Reset filters
+          </button>
+        ) : null}
       </Card>
 
       {filtered.length === 0 ? (
-        <Card className="py-10 text-center">
+        <Card className="py-12 text-center">
           <p className="text-[var(--color-text-muted)]">
-            No anchors match your search.
+            No anchors match your filters.
           </p>
         </Card>
       ) : (
-        filtered.map((a) => (
-          <Link
-            key={a.id}
-            href={`/anchors/${a.id}`}
-            className="block"
-            aria-label={`Open anchor ${a.id}`}
-          >
-            <article className="p-5 rounded-2xl bg-[var(--color-surface)] border border-[var(--color-border)] grid gap-4 transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-[var(--shadow-md)]">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <strong>{a.label}</strong>
-                  <p className="text-sm text-[var(--color-text-muted)]">
-                    {a.building} · {a.location}
-                  </p>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  {statusBadge(a.status)}
-                  <ChevronRight
-                    size={18}
-                    className="text-[var(--color-text-muted)]"
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <KV label="Last tested" value={formatDate(a.lastTested)} />
-                <KV label="Retest due" value={formatDate(a.nextDue)} />
-                <KV label="Inspector" value={a.inspector || "—"} />
-                <KV label="Drawing" value={a.drawing} />
-              </div>
-            </article>
-          </Link>
-        ))
+        <div className="grid gap-3">
+          {filtered.map((a) => (
+            <AnchorRow key={a.id} anchor={a} />
+          ))}
+        </div>
       )}
     </>
   );
 }
 
-function KV({ label, value }: { label: string; value: string }) {
+function AnchorRow({
+  anchor: a,
+}: {
+  anchor: ReturnType<typeof useAnchors>[number];
+}) {
+  const days = a.nextDue ? daysUntil(a.nextDue) : null;
+  const dueText =
+    days === null
+      ? "—"
+      : days < 0
+        ? `${Math.abs(days)}d overdue`
+        : days <= 60
+          ? `Due in ${days}d`
+          : `Due ${formatDate(a.nextDue)}`;
   return (
-    <div className="p-3 rounded-xl bg-[var(--color-surface-2)] text-sm">
-      <span className="block text-[var(--color-text-muted)] text-[0.72rem] uppercase tracking-wider mb-1">
-        {label}
-      </span>
-      {value}
-    </div>
+    <Link
+      href={`/anchors/${a.id}`}
+      aria-label={`Open anchor ${a.id}`}
+      className="group block focus-visible:outline-none"
+    >
+      <article
+        className="
+          relative overflow-hidden
+          rounded-2xl
+          bg-[var(--color-surface)]
+          border border-[var(--color-border)]
+          shadow-[var(--shadow-sm)]
+          pl-5 pr-4 py-4
+          grid grid-cols-[1fr_auto] items-center gap-3
+          transition-all duration-200
+          group-hover:-translate-y-0.5
+          group-hover:shadow-[var(--shadow-md)]
+          group-hover:border-[color-mix(in_srgb,var(--color-primary)_30%,var(--color-border))]
+          group-active:translate-y-0
+          group-active:scale-[0.997]
+        "
+      >
+        {/* Status accent strip */}
+        <div
+          aria-hidden
+          className="absolute left-0 top-3 bottom-3 w-1.5 rounded-r-full"
+          style={{ background: STATUS_COLOR[a.status] }}
+        />
+
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <strong className="truncate">{a.label}</strong>
+            <StatusPill status={a.status} />
+          </div>
+          <p className="text-sm text-[var(--color-text-muted)] truncate mt-0.5">
+            {a.building} · {a.location}
+          </p>
+          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[var(--color-text-muted)]">
+            <span>
+              <span className="text-[var(--color-text-faint)] mr-1">
+                Last tested
+              </span>
+              <strong className="text-[var(--color-text)] font-semibold">
+                {formatDate(a.lastTested)}
+              </strong>
+            </span>
+            <span
+              className={
+                days !== null && days < 0
+                  ? "text-[var(--color-error)] font-semibold"
+                  : days !== null && days <= 30
+                    ? "text-[var(--color-warning)] font-semibold"
+                    : ""
+              }
+            >
+              <span className="text-[var(--color-text-faint)] mr-1">
+                Retest
+              </span>
+              {dueText}
+            </span>
+            {a.inspector ? (
+              <span>
+                <span className="text-[var(--color-text-faint)] mr-1">By</span>
+                <strong className="text-[var(--color-text)] font-semibold">
+                  {a.inspector}
+                </strong>
+              </span>
+            ) : null}
+            {a.drawing ? (
+              <span>
+                <span className="text-[var(--color-text-faint)] mr-1">
+                  Drawing
+                </span>
+                {a.drawing}
+              </span>
+            ) : null}
+          </div>
+        </div>
+
+        <ChevronRight
+          size={20}
+          className="shrink-0 text-[var(--color-text-faint)] transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-[var(--color-primary)]"
+          aria-hidden
+        />
+      </article>
+    </Link>
   );
 }
