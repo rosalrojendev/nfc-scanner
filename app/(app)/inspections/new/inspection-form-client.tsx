@@ -17,7 +17,7 @@ import {
   getAnchor,
 } from "@/lib/store";
 import { inspectionInputSchema } from "@/lib/validation";
-import { INSPECTORS } from "@/lib/seed";
+import { useSettings } from "@/lib/settings-store";
 import type { Inspection, InspectionResult } from "@/lib/types";
 import { ClipboardCheck, Save, X, Loader2 } from "lucide-react";
 import { NfcWriter } from "@/components/scan/nfc-writer";
@@ -33,11 +33,11 @@ function nextYearISO() {
   return d.toISOString().slice(0, 10);
 }
 
-function emptyDraft(anchorId = ""): Inspection {
+function emptyDraft(anchorId = "", defaultInspector = ""): Inspection {
   return {
     id: "",
     anchorId,
-    inspector: INSPECTORS[0],
+    inspector: defaultInspector,
     testDate: todayISO(),
     nextDueDate: nextYearISO(),
     result: "pass" as InspectionResult,
@@ -55,6 +55,8 @@ export function InspectionFormClient() {
   const params = useSearchParams();
   const { notify } = useToast();
   const anchors = useAnchors();
+  const settings = useSettings();
+  const inspectorRoster = settings.inspectors;
 
   const editingId = params.get("id");
   const presetAnchor = params.get("anchor") || "";
@@ -64,7 +66,7 @@ export function InspectionFormClient() {
       const existing = getInspection(editingId);
       if (existing) return existing;
     }
-    return emptyDraft(presetAnchor);
+    return emptyDraft(presetAnchor, inspectorRoster[0] || "");
   });
   const [errors, setErrors] = React.useState<Record<string, string>>({});
   const [savedInspection, setSavedInspection] =
@@ -169,11 +171,17 @@ export function InspectionFormClient() {
                 value={draft.inspector}
                 onChange={(e) => update("inspector", e.target.value)}
               >
-                {INSPECTORS.map((i) => (
+                {inspectorRoster.map((i) => (
                   <option key={i} value={i}>
                     {i}
                   </option>
                 ))}
+                {draft.inspector &&
+                !inspectorRoster.includes(draft.inspector) ? (
+                  <option value={draft.inspector}>
+                    {draft.inspector} (archived)
+                  </option>
+                ) : null}
               </Select>
               <FieldError message={errors.inspector} />
             </Field>

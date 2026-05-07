@@ -2,15 +2,27 @@
 
 import * as React from "react";
 import { Card, Eyebrow } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { resetServerStore } from "@/lib/store";
 import { useToast } from "@/components/ui/toast";
 import { ThemeToggle } from "@/components/shell/theme-toggle";
-import { RotateCcw, ShieldCheck } from "lucide-react";
+import {
+  RotateCcw,
+  ShieldCheck,
+  Users,
+  Bell,
+  Link2,
+} from "lucide-react";
 import { useSession } from "@/components/shell/session-provider";
 import { can } from "@/lib/permissions";
 import { ROLE_META } from "@/lib/role-meta";
+import {
+  activeReminderCount,
+  useSettings,
+} from "@/lib/settings-store";
+import { ManageUsersDialog } from "@/components/settings/manage-users-dialog";
+import { RemindersDialog } from "@/components/settings/reminders-dialog";
+import { ShareLinkDialog } from "@/components/settings/share-link-dialog";
 
 export function SettingsClient() {
   const { notify } = useToast();
@@ -18,6 +30,11 @@ export function SettingsClient() {
   const role = session.role;
   const isAdmin = can.manageUsers(role);
   const canReset = can.resetStore(role);
+  const settings = useSettings();
+
+  const [usersOpen, setUsersOpen] = React.useState(false);
+  const [remindersOpen, setRemindersOpen] = React.useState(false);
+  const [shareOpen, setShareOpen] = React.useState(false);
 
   async function reset() {
     if (
@@ -36,6 +53,18 @@ export function SettingsClient() {
 
   const meta = ROLE_META[role];
   const RoleIcon = meta.icon;
+  const reminderCount = activeReminderCount(settings);
+  const shareCount = settings.shareLinks.length;
+
+  const inspectorPreview = React.useMemo(() => {
+    if (settings.inspectors.length === 0) return "No inspectors on the roster.";
+    if (settings.inspectors.length <= 4)
+      return settings.inspectors.join(", ") + " — all active.";
+    return (
+      settings.inspectors.slice(0, 3).join(", ") +
+      `, and ${settings.inspectors.length - 3} more.`
+    );
+  }, [settings.inspectors]);
 
   return (
     <>
@@ -74,28 +103,59 @@ export function SettingsClient() {
         {isAdmin ? (
           <div className="grid lg:grid-cols-3 gap-3">
             <article className="p-5 rounded-2xl bg-[var(--color-surface-2)] border border-[var(--color-border)] grid gap-3">
-              <strong>Authorized inspectors</strong>
+              <div className="flex items-center justify-between gap-2">
+                <strong className="inline-flex items-center gap-2">
+                  <Users size={16} /> Authorized inspectors
+                </strong>
+                <span className="text-xs font-bold text-[var(--color-text-muted)]">
+                  {settings.inspectors.length}
+                </span>
+              </div>
               <p className="text-sm text-[var(--color-text-muted)]">
-                Justin Kamata, A. Singh, L. Foster, M. Reed, and S. Chen are
-                active and can sign records.
+                {inspectorPreview}
               </p>
-              <Button>Manage users</Button>
+              <Button onClick={() => setUsersOpen(true)}>Manage users</Button>
             </article>
             <article className="p-5 rounded-2xl bg-[var(--color-surface-2)] border border-[var(--color-border)] grid gap-3">
-              <strong>Reminders</strong>
+              <div className="flex items-center justify-between gap-2">
+                <strong className="inline-flex items-center gap-2">
+                  <Bell size={16} /> Reminders
+                </strong>
+                <span className="text-xs font-bold text-[var(--color-text-muted)]">
+                  {reminderCount}/3 on
+                </span>
+              </div>
               <p className="text-sm text-[var(--color-text-muted)]">
-                60, 30, and 7-day alerts enabled for anchors nearing re-test
-                due dates.
+                {reminderCount === 0
+                  ? "No reminders enabled. Re-tests will not be flagged."
+                  : `Alerts enabled at ${[
+                      settings.reminders.sixtyDay && "60",
+                      settings.reminders.thirtyDay && "30",
+                      settings.reminders.sevenDay && "7",
+                    ]
+                      .filter(Boolean)
+                      .join(", ")} days before due date.`}
               </p>
-              <Button>Edit schedule</Button>
+              <Button onClick={() => setRemindersOpen(true)}>
+                Edit schedule
+              </Button>
             </article>
             <article className="p-5 rounded-2xl bg-[var(--color-surface-2)] border border-[var(--color-border)] grid gap-3">
-              <strong>Client viewers</strong>
+              <div className="flex items-center justify-between gap-2">
+                <strong className="inline-flex items-center gap-2">
+                  <Link2 size={16} /> Client viewers
+                </strong>
+                <span className="text-xs font-bold text-[var(--color-text-muted)]">
+                  {shareCount} active
+                </span>
+              </div>
               <p className="text-sm text-[var(--color-text-muted)]">
-                Limited-access links can show reports without exposing edit
+                Tokenized URLs let clients see reports without exposing edit
                 controls.
               </p>
-              <Button>Share report link</Button>
+              <Button onClick={() => setShareOpen(true)}>
+                Share report link
+              </Button>
             </article>
           </div>
         ) : null}
@@ -121,12 +181,12 @@ export function SettingsClient() {
           <div>
             <Eyebrow>Data</Eyebrow>
             <h2 className="text-lg font-semibold tracking-tight mt-1">
-              Local persistence
+              Server store
             </h2>
           </div>
           <p className="text-sm text-[var(--color-text-muted)]">
-            Anchor metadata and inspection records are saved to localStorage on
-            this device. They survive reloads but are not synced anywhere.
+            Anchors and inspections are stored on the server. Reset will
+            replace every record on the running server with the seed dataset.
           </p>
           <div className="flex flex-wrap gap-2">
             <Button onClick={reset}>
@@ -155,6 +215,23 @@ export function SettingsClient() {
           <li>Middleware redirects unauthenticated requests to /login.</li>
         </ul>
       </Card>
+
+      {isAdmin ? (
+        <>
+          <ManageUsersDialog
+            open={usersOpen}
+            onClose={() => setUsersOpen(false)}
+          />
+          <RemindersDialog
+            open={remindersOpen}
+            onClose={() => setRemindersOpen(false)}
+          />
+          <ShareLinkDialog
+            open={shareOpen}
+            onClose={() => setShareOpen(false)}
+          />
+        </>
+      ) : null}
     </>
   );
 }
