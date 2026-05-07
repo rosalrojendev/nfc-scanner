@@ -27,12 +27,17 @@ export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
   const isApi = pathname.startsWith("/api/");
 
+  const isStaticAsset = /\.(?:png|jpe?g|gif|webp|svg|ico|avif|woff2?|ttf|otf|map|css|js)$/i.test(
+    pathname,
+  );
+
   if (
     pathname.startsWith("/_next") ||
     pathname.startsWith("/api/auth") ||
     pathname.startsWith("/api/photos") ||
     PUBLIC_PATHS.includes(pathname) ||
-    pathname === "/favicon.ico"
+    pathname === "/favicon.ico" ||
+    isStaticAsset
   ) {
     return NextResponse.next();
   }

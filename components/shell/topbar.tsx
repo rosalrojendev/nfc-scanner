@@ -2,14 +2,20 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Anchor as AnchorIcon, ScanLine, LogOut } from "lucide-react";
+import Image from "next/image";
+import { ScanLine, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "./theme-toggle";
 import { useRouter } from "next/navigation";
 import type { SessionUser } from "@/lib/types";
+import { ROLE_META } from "@/lib/role-meta";
+import { can } from "@/lib/permissions";
 
 export function TopBar({ user }: { user: SessionUser }) {
   const router = useRouter();
+  const meta = ROLE_META[user.role];
+  const RoleIcon = meta.icon;
+  const canScan = can.scan(user.role);
 
   async function logout() {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -31,32 +37,50 @@ export function TopBar({ user }: { user: SessionUser }) {
       <div className="flex items-center justify-between gap-3">
         <Link href="/dashboard" className="flex items-center gap-3">
           <div
-            className="w-11 h-11 rounded-2xl grid place-items-center"
-            style={{
-              background: "var(--color-primary-highlight)",
-              color: "var(--color-primary)",
-              boxShadow:
-                "inset 0 0 0 1px color-mix(in srgb, var(--color-primary) 18%, transparent)",
-            }}
+            className="relative w-11 h-11 rounded-2xl overflow-hidden shrink-0"
+            style={{ boxShadow: "var(--shadow-sm)" }}
             aria-hidden
           >
-            <AnchorIcon size={22} />
+            <Image
+              src="/kra-logo.png"
+              alt=""
+              fill
+              sizes="44px"
+              priority
+              className="object-cover"
+            />
           </div>
           <div className="leading-tight">
             <strong className="block text-[1.05rem] tracking-tight">
               Anchor Tag Pro
             </strong>
-            <span className="block text-xs text-[var(--color-text-muted)]">
-              {user.name} · {user.role}
+            <span className="hidden sm:inline-flex items-center gap-1.5 text-xs text-[var(--color-text-muted)]">
+              <span
+                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full font-semibold"
+                style={{
+                  background: meta.accentHighlight,
+                  color: meta.accent,
+                }}
+              >
+                <RoleIcon size={12} />
+                {meta.label}
+              </span>
+              · {user.name}
+            </span>
+            <span className="sm:hidden text-xs text-[var(--color-text-muted)] inline-flex items-center gap-1">
+              <RoleIcon size={12} style={{ color: meta.accent }} />
+              {user.name}
             </span>
           </div>
         </Link>
         <div className="flex gap-2">
-          <Link href="/scan" aria-label="Open scanner">
-            <Button variant="default" size="icon">
-              <ScanLine size={20} />
-            </Button>
-          </Link>
+          {canScan ? (
+            <Link href="/scan" aria-label="Open scanner">
+              <Button variant="default" size="icon">
+                <ScanLine size={20} />
+              </Button>
+            </Link>
+          ) : null}
           <ThemeToggle compact />
           <Button
             variant="default"

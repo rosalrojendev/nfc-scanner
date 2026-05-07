@@ -11,6 +11,7 @@ import { daysUntil } from "@/lib/utils";
 import { ScanLine, FileText, ClipboardCheck, Map as MapIcon } from "lucide-react";
 import { useSession } from "@/components/shell/session-provider";
 import { can } from "@/lib/permissions";
+import { ROLE_META } from "@/lib/role-meta";
 
 export function DashboardClient() {
   const anchors = useAnchors();
@@ -40,21 +41,31 @@ export function DashboardClient() {
 
   return (
     <>
-      <Card className="p-5 overflow-hidden relative">
-        <Eyebrow>
-          {role === "client"
-            ? "Client view"
-            : role === "admin"
-              ? "Admin overview"
-              : "Mobile-first control center"}
-        </Eyebrow>
-        <h1 className="text-2xl font-semibold tracking-tight">
-          {role === "client"
-            ? "Read-only view of certifications, drawings, and reports."
-            : role === "admin"
-              ? "Track inspectors, anchors, drawings, and reports across all buildings."
-              : "Scan tags, log proof tests, and update due dates from the roof."}
-        </h1>
+      <Card className="p-6 sm:p-7 overflow-hidden relative">
+        <div
+          aria-hidden
+          className="absolute inset-0 pointer-events-none opacity-70"
+          style={{
+            background:
+              "radial-gradient(circle at 100% 0%, color-mix(in srgb, var(--color-primary) 16%, transparent), transparent 55%), radial-gradient(circle at 0% 100%, color-mix(in srgb, var(--color-blue) 14%, transparent), transparent 60%)",
+          }}
+        />
+        <div className="relative grid gap-4">
+          <RolePill />
+          <Eyebrow>
+            {role === "client"
+              ? "Client view"
+              : role === "admin"
+                ? "Admin overview"
+                : "Mobile-first control center"}
+          </Eyebrow>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            {role === "client"
+              ? "Read-only view of certifications, drawings, and reports."
+              : role === "admin"
+                ? "Track inspectors, anchors, drawings, and reports across all buildings."
+                : "Scan tags, log proof tests, and update due dates from the roof."}
+          </h1>
         <p className="text-[var(--color-text-muted)]">
           {role === "client"
             ? "You can review anchor status, drawings, and download reports. Editing and scanning are reserved for the inspection team."
@@ -92,28 +103,29 @@ export function DashboardClient() {
             </Link>
           ) : null}
         </div>
+        </div>
       </Card>
 
-      <section className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <article className="p-4 rounded-2xl bg-[var(--color-surface-2)] border border-[var(--color-border)] grid gap-1">
+      <section className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <article className="p-5 rounded-2xl bg-[var(--color-surface)] border border-[var(--color-border)] grid gap-2 shadow-[var(--shadow-sm)]">
           <span className="text-xs uppercase tracking-wider text-[var(--color-text-muted)]">
             Buildings
           </span>
           <AnimatedCounter target={buildings} />
         </article>
-        <article className="p-4 rounded-2xl bg-[var(--color-surface-2)] border border-[var(--color-border)] grid gap-1">
+        <article className="p-5 rounded-2xl bg-[var(--color-surface)] border border-[var(--color-border)] grid gap-2 shadow-[var(--shadow-sm)]">
           <span className="text-xs uppercase tracking-wider text-[var(--color-text-muted)]">
             Inspectors
           </span>
           <AnimatedCounter target={inspectorsCount || 5} />
         </article>
-        <article className="p-4 rounded-2xl bg-[var(--color-surface-2)] border border-[var(--color-border)] grid gap-1">
+        <article className="p-5 rounded-2xl bg-[var(--color-surface)] border border-[var(--color-border)] grid gap-2 shadow-[var(--shadow-sm)]">
           <span className="text-xs uppercase tracking-wider text-[var(--color-text-muted)]">
             Overdue
           </span>
           <AnimatedCounter target={overdue} />
         </article>
-        <article className="p-4 rounded-2xl bg-[var(--color-surface-2)] border border-[var(--color-border)] grid gap-1">
+        <article className="p-5 rounded-2xl bg-[var(--color-surface)] border border-[var(--color-border)] grid gap-2 shadow-[var(--shadow-sm)]">
           <span className="text-xs uppercase tracking-wider text-[var(--color-text-muted)]">
             Reports ready
           </span>
@@ -266,7 +278,7 @@ export function DashboardClient() {
                 <Link
                   key={a.id}
                   href={`/anchors/${a.id}`}
-                  className="block p-4 rounded-2xl bg-[var(--color-surface-2)] border border-[var(--color-border)] hover:bg-[var(--color-surface)] transition"
+                  className="block p-5 rounded-2xl bg-[var(--color-surface-2)] border border-[var(--color-border)] hover:bg-[var(--color-surface)] transition"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <strong className="text-sm">{a.label}</strong>
@@ -326,6 +338,28 @@ export function DashboardClient() {
         </div>
       </Card>
     </>
+  );
+}
+
+function RolePill() {
+  const session = useSession();
+  const meta = ROLE_META[session.role];
+  const Icon = meta.icon;
+  return (
+    <span
+      className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold w-fit"
+      style={{
+        background: meta.accentHighlight,
+        color: meta.accent,
+        boxShadow:
+          "inset 0 0 0 1px color-mix(in srgb, currentColor 22%, transparent)",
+      }}
+    >
+      <Icon size={14} />
+      <span>
+        Hi, {session.name.split(" ")[0]} · {meta.label}
+      </span>
+    </span>
   );
 }
 

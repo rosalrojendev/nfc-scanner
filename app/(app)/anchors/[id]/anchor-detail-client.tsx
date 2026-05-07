@@ -28,6 +28,7 @@ import {
 import type { Anchor } from "@/lib/types";
 import { NfcWriter } from "@/components/scan/nfc-writer";
 import { buildPayload } from "@/lib/nfc-payload";
+import { SubmittedByChip } from "@/components/submitted-by";
 
 export function AnchorDetailClient({ id }: { id: string }) {
   const router = useRouter();
@@ -225,7 +226,7 @@ export function AnchorDetailClient({ id }: { id: string }) {
           history.map((rec) => (
             <article
               key={rec.id}
-              className="p-4 rounded-2xl bg-[var(--color-surface-2)] border border-[var(--color-border)] grid gap-2"
+              className="p-5 rounded-2xl bg-[var(--color-surface-2)] border border-[var(--color-border)] grid gap-3"
             >
               <div className="flex items-start justify-between gap-3">
                 <div>
@@ -235,15 +236,11 @@ export function AnchorDetailClient({ id }: { id: string }) {
                   <p className="text-xs text-[var(--color-text-muted)] mt-1">
                     {rec.proofLoad || "—"} · Drawing {rec.drawingRef || "—"}
                   </p>
-                  {rec.submittedByName ? (
-                    <p className="text-xs text-[var(--color-text-muted)] mt-1">
-                      Submitted by{" "}
-                      <strong className="text-[var(--color-text)]">
-                        {rec.submittedByName}
-                      </strong>
-                      {rec.submittedByRole ? ` (${rec.submittedByRole})` : ""}
-                    </p>
-                  ) : null}
+                  <SubmittedByChip
+                    name={rec.submittedByName}
+                    role={rec.submittedByRole}
+                    className="mt-1"
+                  />
                 </div>
                 {rec.result === "pass" ? (
                   <Badge variant="success">Pass</Badge>

@@ -10,6 +10,7 @@ import { ThemeToggle } from "@/components/shell/theme-toggle";
 import { RotateCcw, ShieldCheck } from "lucide-react";
 import { useSession } from "@/components/shell/session-provider";
 import { can } from "@/lib/permissions";
+import { ROLE_META } from "@/lib/role-meta";
 
 export function SettingsClient() {
   const { notify } = useToast();
@@ -33,31 +34,46 @@ export function SettingsClient() {
     }
   }
 
+  const meta = ROLE_META[role];
+  const RoleIcon = meta.icon;
+
   return (
     <>
       <Card>
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <Eyebrow>{isAdmin ? "Admin tools" : "Account"}</Eyebrow>
-            <h1 className="text-xl font-semibold tracking-tight mt-1">
-              {isAdmin
-                ? "Inspectors, reminders, and system settings"
-                : `Signed in as ${session.name}`}
-            </h1>
-            {!isAdmin ? (
-              <p className="text-sm text-[var(--color-text-muted)] mt-1">
-                Role: <strong>{role}</strong>. Admin tools are not available
-                for your role.
-              </p>
-            ) : null}
+        <div className="flex items-start gap-4">
+          <div
+            className="w-14 h-14 shrink-0 rounded-2xl grid place-items-center"
+            style={{
+              background: meta.accentHighlight,
+              color: meta.accent,
+              boxShadow: "var(--shadow-sm)",
+            }}
+            aria-hidden
+          >
+            <RoleIcon size={26} />
           </div>
-          <Badge variant={isAdmin ? "blue" : "default"}>
-            {role.toUpperCase()}
-          </Badge>
+          <div className="flex-1 min-w-0">
+            <Eyebrow>Signed in as</Eyebrow>
+            <h1 className="text-xl font-semibold tracking-tight mt-1">
+              {session.name}
+            </h1>
+            <p className="text-sm text-[var(--color-text-muted)] mt-1">
+              <span
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold mr-1"
+                style={{
+                  background: meta.accentHighlight,
+                  color: meta.accent,
+                }}
+              >
+                <RoleIcon size={12} /> {meta.label}
+              </span>
+              {meta.description}
+            </p>
+          </div>
         </div>
         {isAdmin ? (
           <div className="grid lg:grid-cols-3 gap-3">
-            <article className="p-4 rounded-2xl bg-[var(--color-surface-2)] border border-[var(--color-border)] grid gap-2">
+            <article className="p-5 rounded-2xl bg-[var(--color-surface-2)] border border-[var(--color-border)] grid gap-3">
               <strong>Authorized inspectors</strong>
               <p className="text-sm text-[var(--color-text-muted)]">
                 Justin Kamata, A. Singh, L. Foster, M. Reed, and S. Chen are
@@ -65,7 +81,7 @@ export function SettingsClient() {
               </p>
               <Button>Manage users</Button>
             </article>
-            <article className="p-4 rounded-2xl bg-[var(--color-surface-2)] border border-[var(--color-border)] grid gap-2">
+            <article className="p-5 rounded-2xl bg-[var(--color-surface-2)] border border-[var(--color-border)] grid gap-3">
               <strong>Reminders</strong>
               <p className="text-sm text-[var(--color-text-muted)]">
                 60, 30, and 7-day alerts enabled for anchors nearing re-test
@@ -73,7 +89,7 @@ export function SettingsClient() {
               </p>
               <Button>Edit schedule</Button>
             </article>
-            <article className="p-4 rounded-2xl bg-[var(--color-surface-2)] border border-[var(--color-border)] grid gap-2">
+            <article className="p-5 rounded-2xl bg-[var(--color-surface-2)] border border-[var(--color-border)] grid gap-3">
               <strong>Client viewers</strong>
               <p className="text-sm text-[var(--color-text-muted)]">
                 Limited-access links can show reports without exposing edit

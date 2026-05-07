@@ -23,9 +23,9 @@ export default async function AppLayout({
         <SideNav />
         <main
           id="main"
-          className="px-4 lg:px-6 pt-4 lg:pt-6 grid gap-4 content-start"
+          className="px-4 lg:px-8 pt-5 lg:pt-8 grid gap-5 lg:gap-6 content-start w-full max-w-[1140px] mx-auto"
           style={{
-            paddingBottom: "calc(96px + env(safe-area-inset-bottom))",
+            paddingBottom: "calc(104px + env(safe-area-inset-bottom))",
           }}
         >
           {children}

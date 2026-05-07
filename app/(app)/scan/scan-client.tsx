@@ -16,6 +16,7 @@ import { resolveScanPayload } from "@/lib/scan";
 import { formatDate } from "@/lib/utils";
 import type { NfcTagPayload } from "@/lib/nfc-payload";
 import { Sparkles, Image as ImageIcon, ExternalLink } from "lucide-react";
+import { SubmittedByChip } from "@/components/submitted-by";
 
 type Mode = "nfc" | "qr" | "manual";
 
@@ -216,17 +217,11 @@ export function ScanClient() {
                     <strong className="text-sm">
                       {formatDate(rec.testDate)} · {rec.inspector}
                     </strong>
-                    {rec.submittedByName ? (
-                      <p className="text-xs text-[var(--color-text-muted)] mt-1">
-                        Submitted by{" "}
-                        <strong className="text-[var(--color-text)]">
-                          {rec.submittedByName}
-                        </strong>
-                        {rec.submittedByRole
-                          ? ` (${rec.submittedByRole})`
-                          : ""}
-                      </p>
-                    ) : null}
+                    <SubmittedByChip
+                      name={rec.submittedByName}
+                      role={rec.submittedByRole}
+                      className="mt-1"
+                    />
                     {rec.notes ? (
                       <p className="text-xs text-[var(--color-text-muted)] mt-1">
                         {rec.notes}

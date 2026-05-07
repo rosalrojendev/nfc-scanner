@@ -22,5 +22,5 @@ export function AnimatedCounter({
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
   }, [target, duration]);
-  return <strong className="text-[1.15rem]">{value}</strong>;
+  return <strong className="text-[1.6rem] font-semibold">{value}</strong>;
 }

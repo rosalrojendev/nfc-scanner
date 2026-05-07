@@ -144,8 +144,8 @@ export function BottomNav() {
   );
 
   const overflowing = mobileItems.length > MOBILE_NAV_LIMIT;
-  // When overflowing: leftmost slot is "More". Remaining 4 slots show the
-  // first 4 nav items. Anything past index 3 lives inside the More drawer.
+  // When overflowing: rightmost slot is "More". The first 4 nav items take
+  // slots 1-4, anything past index 3 lives inside the More drawer.
   const visibleAsTabs = overflowing
     ? mobileItems.slice(0, MOBILE_NAV_LIMIT - 1)
     : mobileItems;
@@ -184,22 +184,6 @@ export function BottomNav() {
           className="grid gap-2"
           style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
         >
-          {overflowing ? (
-            <button
-              type="button"
-              onClick={() => setMoreOpen(true)}
-              aria-haspopup="dialog"
-              aria-expanded={moreOpen}
-              aria-label={`More options (${overflowItems.length})`}
-              className={cn(
-                mobileLinkBase,
-                moreActive ? mobileLinkActive : mobileLinkInactive,
-              )}
-            >
-              <MoreHorizontal size={20} />
-              <span>More</span>
-            </button>
-          ) : null}
           {visibleAsTabs.map((item) => {
             const Icon = item.icon;
             const active = item.match(pathname);
@@ -218,6 +202,22 @@ export function BottomNav() {
               </Link>
             );
           })}
+          {overflowing ? (
+            <button
+              type="button"
+              onClick={() => setMoreOpen(true)}
+              aria-haspopup="dialog"
+              aria-expanded={moreOpen}
+              aria-label={`More options (${overflowItems.length})`}
+              className={cn(
+                mobileLinkBase,
+                moreActive ? mobileLinkActive : mobileLinkInactive,
+              )}
+            >
+              <MoreHorizontal size={20} />
+              <span>More</span>
+            </button>
+          ) : null}
         </div>
       </nav>
 

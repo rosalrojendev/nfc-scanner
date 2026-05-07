@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { Card, Eyebrow } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Field, FieldError, Input, Label } from "@/components/ui/input";
@@ -9,13 +10,14 @@ import { Segmented } from "@/components/ui/segmented";
 import { useToast } from "@/components/ui/toast";
 import { loginSchema } from "@/lib/validation";
 import type { Role } from "@/lib/types";
-import { Anchor, ShieldCheck } from "lucide-react";
+import { ShieldCheck, Sparkles } from "lucide-react";
+import { ROLE_META } from "@/lib/role-meta";
 
-const roleOptions: { value: Role; label: string }[] = [
-  { value: "inspector", label: "Inspector" },
-  { value: "admin", label: "Admin" },
-  { value: "client", label: "Client" },
-];
+const roleOptions = (Object.keys(ROLE_META) as Role[]).map((r) => ({
+  value: r,
+  label: ROLE_META[r].label,
+  icon: ROLE_META[r].icon,
+}));
 
 const DEMO_PASSWORD = "AnchorTag!2026";
 const DEMO_EMAILS: Record<Role, string> = {
@@ -108,24 +110,28 @@ export function LoginClient({ nextPath }: { nextPath: string }) {
   }
 
   return (
-    <Card className="w-full max-w-md p-6 shadow-[var(--shadow-md)]">
+    <Card className="w-full max-w-md p-7 shadow-[var(--shadow-md)] gap-5">
       <div className="flex items-center gap-3">
         <div
-          className="w-11 h-11 rounded-2xl grid place-items-center"
-          style={{
-            background: "var(--color-primary-highlight)",
-            color: "var(--color-primary)",
-          }}
+          className="relative w-12 h-12 rounded-2xl overflow-hidden shrink-0"
+          style={{ boxShadow: "var(--shadow-sm)" }}
           aria-hidden
         >
-          <Anchor size={22} />
+          <Image
+            src="/kra-logo.png"
+            alt=""
+            fill
+            sizes="48px"
+            priority
+            className="object-cover"
+          />
         </div>
-        <div>
+        <div className="leading-tight">
           <strong className="block text-base tracking-tight">
             Anchor Tag Pro
           </strong>
           <span className="block text-xs text-[var(--color-text-muted)]">
-            Roof anchor NFC + QR app
+            Kamloops Rope Access · NFC + QR field app
           </span>
         </div>
       </div>
@@ -145,9 +151,9 @@ export function LoginClient({ nextPath }: { nextPath: string }) {
         onChange={setRole}
         options={roleOptions}
       />
+      <RoleHint role={role} />
       <p className="text-xs text-[var(--color-text-muted)] -mt-1">
-        Selected role: <strong className="text-[var(--color-text)]">{role}</strong>{" "}
-        · demo email{" "}
+        Demo email:{" "}
         <span className="font-mono">{DEMO_EMAILS[role]}</span>
       </p>
 
@@ -183,7 +189,7 @@ export function LoginClient({ nextPath }: { nextPath: string }) {
             {submitting ? "Signing in…" : "Open dashboard"}
           </Button>
           <Button type="button" onClick={handleDemo} disabled={submitting}>
-            Try demo bypass
+            <Sparkles size={16} /> Try demo bypass
           </Button>
         </div>
       </form>
@@ -211,5 +217,36 @@ export function LoginClient({ nextPath }: { nextPath: string }) {
         </div>
       </div>
     </Card>
+  );
+}
+
+function RoleHint({ role }: { role: Role }) {
+  const meta = ROLE_META[role];
+  const Icon = meta.icon;
+  return (
+    <div
+      className="flex items-start gap-3 p-3 rounded-2xl border"
+      style={{
+        background: meta.accentHighlight,
+        borderColor: "transparent",
+      }}
+    >
+      <div
+        className="w-9 h-9 shrink-0 rounded-xl grid place-items-center"
+        style={{
+          background: "color-mix(in srgb, var(--color-surface) 70%, transparent)",
+          color: meta.accent,
+        }}
+        aria-hidden
+      >
+        <Icon size={18} />
+      </div>
+      <div className="text-[0.85rem] leading-snug">
+        <strong className="block text-[var(--color-text)]">{meta.label}</strong>
+        <span className="block text-[var(--color-text-muted)] mt-0.5">
+          {meta.description}
+        </span>
+      </div>
+    </div>
   );
 }

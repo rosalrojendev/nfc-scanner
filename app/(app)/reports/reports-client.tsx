@@ -86,7 +86,7 @@ export function ReportsClient() {
         {SEED_REPORTS.map((r) => (
           <article
             key={r.id}
-            className="p-4 rounded-2xl bg-[var(--color-surface-2)] border border-[var(--color-border)] grid gap-3"
+            className="p-5 rounded-2xl bg-[var(--color-surface-2)] border border-[var(--color-border)] grid gap-4"
           >
             <div className="flex items-start justify-between gap-3">
               <div>

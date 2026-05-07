@@ -1,12 +1,19 @@
 "use client";
 
 import * as React from "react";
+import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+interface SegmentedOption<T extends string> {
+  value: T;
+  label: string;
+  icon?: LucideIcon;
+}
 
 interface SegmentedProps<T extends string> {
   value: T;
   onChange: (value: T) => void;
-  options: { value: T; label: string }[];
+  options: SegmentedOption<T>[];
   ariaLabel?: string;
   className?: string;
 }
@@ -29,6 +36,7 @@ export function Segmented<T extends string>({
     >
       {options.map((opt) => {
         const active = opt.value === value;
+        const Icon = opt.icon;
         return (
           <button
             key={opt.value}
@@ -37,13 +45,14 @@ export function Segmented<T extends string>({
             aria-selected={active}
             onClick={() => onChange(opt.value)}
             className={cn(
-              "flex-1 min-h-[44px] px-3 rounded-full text-sm font-bold transition-all duration-200 will-change-transform",
+              "flex-1 min-h-[44px] px-3 rounded-full text-sm font-bold transition-all duration-200 will-change-transform inline-flex items-center justify-center gap-1.5",
               active
                 ? "bg-[var(--color-primary)] text-[var(--color-text-inverse)] shadow-[var(--shadow-md)] ring-2 ring-[color-mix(in_srgb,var(--color-primary)_45%,transparent)] ring-offset-2 ring-offset-[var(--color-surface)] scale-[1.02]"
                 : "text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface)]",
             )}
           >
-            {opt.label}
+            {Icon ? <Icon size={16} aria-hidden /> : null}
+            <span>{opt.label}</span>
           </button>
         );
       })}

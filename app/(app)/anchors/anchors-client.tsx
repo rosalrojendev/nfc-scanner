@@ -93,7 +93,7 @@ export function AnchorsClient() {
             className="block"
             aria-label={`Open anchor ${a.id}`}
           >
-            <article className="p-4 rounded-2xl bg-[var(--color-surface)] border border-[var(--color-border)] grid gap-3 hover:shadow-[var(--shadow-sm)] transition">
+            <article className="p-5 rounded-2xl bg-[var(--color-surface)] border border-[var(--color-border)] grid gap-4 transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-[var(--shadow-md)]">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <strong>{a.label}</strong>

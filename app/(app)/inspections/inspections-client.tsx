@@ -16,6 +16,7 @@ import { useToast } from "@/components/ui/toast";
 import { useSession } from "@/components/shell/session-provider";
 import { can } from "@/lib/permissions";
 import { ClipboardCheck, Search, Trash2, PencilLine } from "lucide-react";
+import { SubmittedByChip } from "@/components/submitted-by";
 
 export function InspectionsClient() {
   const inspections = useInspections();
@@ -112,7 +113,7 @@ export function InspectionsClient() {
         filtered.map((rec) => (
           <article
             key={rec.id}
-            className="p-4 rounded-2xl bg-[var(--color-surface)] border border-[var(--color-border)] grid gap-2"
+            className="p-5 rounded-2xl bg-[var(--color-surface)] border border-[var(--color-border)] grid gap-3"
           >
             <div className="flex items-start justify-between gap-3">
               <div>
@@ -125,15 +126,11 @@ export function InspectionsClient() {
                 <p className="text-sm text-[var(--color-text-muted)] mt-1">
                   {formatDate(rec.testDate)} · {rec.inspector}
                 </p>
-                {rec.submittedByName ? (
-                  <p className="text-xs text-[var(--color-text-muted)] mt-1">
-                    Submitted by{" "}
-                    <strong className="text-[var(--color-text)]">
-                      {rec.submittedByName}
-                    </strong>
-                    {rec.submittedByRole ? ` (${rec.submittedByRole})` : ""}
-                  </p>
-                ) : null}
+                <SubmittedByChip
+                  name={rec.submittedByName}
+                  role={rec.submittedByRole}
+                  className="mt-1"
+                />
               </div>
               {rec.result === "pass" ? (
                 <Badge variant="success">Pass</Badge>
