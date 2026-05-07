@@ -10,12 +10,16 @@ import { useRouter } from "next/navigation";
 import type { SessionUser } from "@/lib/types";
 import { ROLE_META } from "@/lib/role-meta";
 import { can } from "@/lib/permissions";
+import { Avatar } from "@/components/ui/avatar";
+import { avatarFor, useSettings } from "@/lib/settings-store";
 
 export function TopBar({ user }: { user: SessionUser }) {
   const router = useRouter();
   const meta = ROLE_META[user.role];
   const RoleIcon = meta.icon;
   const canScan = can.scan(user.role);
+  const settings = useSettings();
+  const myAvatar = avatarFor(user.id, user.name, settings);
 
   async function logout() {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -73,7 +77,7 @@ export function TopBar({ user }: { user: SessionUser }) {
             </span>
           </div>
         </Link>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
           {canScan ? (
             <Link href="/scan" aria-label="Open scanner">
               <Button variant="default" size="icon">
@@ -82,6 +86,24 @@ export function TopBar({ user }: { user: SessionUser }) {
             </Link>
           ) : null}
           <ThemeToggle compact />
+          <Link
+            href="/settings"
+            aria-label={`Open settings for ${user.name}`}
+            className="relative inline-flex shrink-0 transition-transform duration-200 hover:scale-[1.04]"
+          >
+            <Avatar name={user.name} src={myAvatar} size={40} />
+            <span
+              aria-hidden
+              className="absolute -bottom-0.5 -right-0.5 inline-flex items-center justify-center w-4 h-4 rounded-full"
+              style={{
+                background: meta.accent,
+                color: "var(--color-text-inverse)",
+                boxShadow: "0 0 0 2px var(--color-bg)",
+              }}
+            >
+              <RoleIcon size={9} />
+            </span>
+          </Link>
           <Button
             variant="default"
             size="icon"

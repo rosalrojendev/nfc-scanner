@@ -39,12 +39,34 @@ export interface Inspection {
   submittedByRole?: Role | null;
 }
 
+export interface DrawingPin {
+  id: string;
+  x: number;
+  y: number;
+  status: AnchorStatus;
+}
+
+export type DrawingAttachmentKind = "plan" | "detail" | "pdf";
+
+export interface DrawingAttachment {
+  id: string;
+  kind: DrawingAttachmentKind;
+  label: string;
+  url: string;
+  contentType?: string;
+  addedAt: string;
+}
+
 export interface Drawing {
   id: string;
   building: string;
   level: string;
   reference: string;
-  anchors: { id: string; x: number; y: number; status: AnchorStatus }[];
+  anchors: DrawingPin[];
+  planUrl?: string | null;
+  attachments?: DrawingAttachment[];
+  createdAt?: string;
+  custom?: boolean;
 }
 
 export interface Report {

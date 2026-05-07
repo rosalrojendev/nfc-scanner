@@ -18,11 +18,14 @@ import { can } from "@/lib/permissions";
 import { ROLE_META } from "@/lib/role-meta";
 import {
   activeReminderCount,
+  avatarFor,
   useSettings,
 } from "@/lib/settings-store";
 import { ManageUsersDialog } from "@/components/settings/manage-users-dialog";
 import { RemindersDialog } from "@/components/settings/reminders-dialog";
 import { ShareLinkDialog } from "@/components/settings/share-link-dialog";
+import { MyProfilePhoto } from "@/components/settings/my-profile-photo";
+import { Avatar } from "@/components/ui/avatar";
 
 export function SettingsClient() {
   const { notify } = useToast();
@@ -55,31 +58,31 @@ export function SettingsClient() {
   const RoleIcon = meta.icon;
   const reminderCount = activeReminderCount(settings);
   const shareCount = settings.shareLinks.length;
+  const myAvatar = avatarFor(session.id, session.name, settings);
 
   const inspectorPreview = React.useMemo(() => {
-    if (settings.inspectors.length === 0) return "No inspectors on the roster.";
-    if (settings.inspectors.length <= 4)
-      return settings.inspectors.join(", ") + " — all active.";
-    return (
-      settings.inspectors.slice(0, 3).join(", ") +
-      `, and ${settings.inspectors.length - 3} more.`
-    );
+    const names = settings.inspectors.map((i) => i.name);
+    if (names.length === 0) return "No inspectors on the roster.";
+    if (names.length <= 4) return names.join(", ") + " — all active.";
+    return names.slice(0, 3).join(", ") + `, and ${names.length - 3} more.`;
   }, [settings.inspectors]);
 
   return (
     <>
       <Card>
         <div className="flex items-start gap-4">
-          <div
-            className="w-14 h-14 shrink-0 rounded-2xl grid place-items-center"
-            style={{
-              background: meta.accentHighlight,
-              color: meta.accent,
-              boxShadow: "var(--shadow-sm)",
-            }}
-            aria-hidden
-          >
-            <RoleIcon size={26} />
+          <div className="relative shrink-0" aria-hidden>
+            <Avatar name={session.name} src={myAvatar} size={64} />
+            <span
+              className="absolute -bottom-0.5 -right-0.5 inline-flex items-center justify-center w-6 h-6 rounded-full"
+              style={{
+                background: meta.accent,
+                color: "var(--color-text-inverse)",
+                boxShadow: "0 0 0 2.5px var(--color-surface)",
+              }}
+            >
+              <RoleIcon size={12} />
+            </span>
           </div>
           <div className="flex-1 min-w-0">
             <Eyebrow>Signed in as</Eyebrow>
@@ -160,6 +163,8 @@ export function SettingsClient() {
           </div>
         ) : null}
       </Card>
+
+      <MyProfilePhoto />
 
       <Card>
         <div>

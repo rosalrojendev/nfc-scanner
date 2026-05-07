@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Card, Eyebrow } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Field, FieldError, Input, Label, Select, Textarea } from "@/components/ui/input";
+import { InspectorPicker } from "@/components/inspection/inspector-picker";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/toast";
 import { SignaturePad } from "@/components/inspection/signature-pad";
@@ -66,7 +67,7 @@ export function InspectionFormClient() {
       const existing = getInspection(editingId);
       if (existing) return existing;
     }
-    return emptyDraft(presetAnchor, inspectorRoster[0] || "");
+    return emptyDraft(presetAnchor, inspectorRoster[0]?.name || "");
   });
   const [errors, setErrors] = React.useState<Record<string, string>>({});
   const [savedInspection, setSavedInspection] =
@@ -166,23 +167,12 @@ export function InspectionFormClient() {
             </Field>
             <Field>
               <Label htmlFor="f-inspector">Inspector</Label>
-              <Select
-                id="f-inspector"
+              <InspectorPicker
+                buttonId="f-inspector"
                 value={draft.inspector}
-                onChange={(e) => update("inspector", e.target.value)}
-              >
-                {inspectorRoster.map((i) => (
-                  <option key={i} value={i}>
-                    {i}
-                  </option>
-                ))}
-                {draft.inspector &&
-                !inspectorRoster.includes(draft.inspector) ? (
-                  <option value={draft.inspector}>
-                    {draft.inspector} (archived)
-                  </option>
-                ) : null}
-              </Select>
+                onChange={(name) => update("inspector", name)}
+                inspectors={inspectorRoster}
+              />
               <FieldError message={errors.inspector} />
             </Field>
             <Field>

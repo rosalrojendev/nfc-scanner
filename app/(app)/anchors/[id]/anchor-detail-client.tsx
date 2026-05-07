@@ -29,6 +29,7 @@ import type { Anchor } from "@/lib/types";
 import { NfcWriter } from "@/components/scan/nfc-writer";
 import { buildPayload } from "@/lib/nfc-payload";
 import { SubmittedByChip } from "@/components/submitted-by";
+import { InspectorTag } from "@/components/inspector-tag";
 
 export function AnchorDetailClient({ id }: { id: string }) {
   const router = useRouter();
@@ -156,7 +157,16 @@ export function AnchorDetailClient({ id }: { id: string }) {
                 : "—"
             }
           />
-          <KV label="Inspector" value={anchor.inspector || "—"} />
+          <KV
+            label="Inspector"
+            value={
+              anchor.inspector ? (
+                <InspectorTag name={anchor.inspector} size={20} />
+              ) : (
+                "—"
+              )
+            }
+          />
           <KV label="Proof result" value={anchor.proofResult || "—"} />
         </div>
 
@@ -230,9 +240,11 @@ export function AnchorDetailClient({ id }: { id: string }) {
             >
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <strong className="text-sm">
-                    {formatDate(rec.testDate)} · {rec.inspector}
-                  </strong>
+                  <span className="text-sm inline-flex items-center gap-1.5 flex-wrap">
+                    <strong>{formatDate(rec.testDate)}</strong>
+                    <span className="text-[var(--color-text-faint)]">·</span>
+                    <InspectorTag name={rec.inspector} size={20} />
+                  </span>
                   <p className="text-xs text-[var(--color-text-muted)] mt-1">
                     {rec.proofLoad || "—"} · Drawing {rec.drawingRef || "—"}
                   </p>
@@ -369,7 +381,13 @@ export function AnchorDetailClient({ id }: { id: string }) {
   );
 }
 
-function KV({ label, value }: { label: string; value: string }) {
+function KV({
+  label,
+  value,
+}: {
+  label: string;
+  value: React.ReactNode;
+}) {
   return (
     <div className="p-3 rounded-xl bg-[var(--color-surface-2)] border border-[var(--color-border)] text-sm">
       <span className="block text-[var(--color-text-muted)] text-[0.72rem] uppercase tracking-wider mb-1">

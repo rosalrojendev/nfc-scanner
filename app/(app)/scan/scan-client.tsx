@@ -17,6 +17,7 @@ import { formatDate } from "@/lib/utils";
 import type { NfcTagPayload } from "@/lib/nfc-payload";
 import { Sparkles, Image as ImageIcon, ExternalLink } from "lucide-react";
 import { SubmittedByChip } from "@/components/submitted-by";
+import { InspectorTag } from "@/components/inspector-tag";
 
 type Mode = "nfc" | "qr" | "manual";
 
@@ -214,9 +215,11 @@ export function ScanClient() {
               >
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <strong className="text-sm">
-                      {formatDate(rec.testDate)} · {rec.inspector}
-                    </strong>
+                    <span className="text-sm inline-flex items-center gap-1.5 flex-wrap">
+                      <strong>{formatDate(rec.testDate)}</strong>
+                      <span className="text-[var(--color-text-faint)]">·</span>
+                      <InspectorTag name={rec.inspector} size={20} />
+                    </span>
                     <SubmittedByChip
                       name={rec.submittedByName}
                       role={rec.submittedByRole}

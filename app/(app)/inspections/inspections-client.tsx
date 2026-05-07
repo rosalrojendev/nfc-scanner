@@ -27,6 +27,7 @@ import {
   AlertOctagon,
 } from "lucide-react";
 import { SubmittedByChip } from "@/components/submitted-by";
+import { InspectorTag } from "@/components/inspector-tag";
 import type { InspectionResult, Inspection } from "@/lib/types";
 
 type ResultFilter = "all" | InspectionResult;
@@ -268,12 +269,12 @@ function InspectionRow({
                 </span>
                 <ResultPill result={rec.result} />
               </div>
-              <p className="text-xs text-[var(--color-text-muted)] mt-1">
+              <p className="text-xs text-[var(--color-text-muted)] mt-1 inline-flex items-center gap-1.5 flex-wrap">
                 <strong className="text-[var(--color-text)] font-semibold">
                   {formatDate(rec.testDate)}
                 </strong>
-                <span className="mx-1.5 text-[var(--color-text-faint)]">·</span>
-                {rec.inspector}
+                <span className="text-[var(--color-text-faint)]">·</span>
+                <InspectorTag name={rec.inspector} size={18} />
               </p>
               <SubmittedByChip
                 name={rec.submittedByName}

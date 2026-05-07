@@ -16,6 +16,7 @@ import {
   AlertTriangle,
   AlertOctagon,
 } from "lucide-react";
+import { InspectorTag } from "@/components/inspector-tag";
 
 type Filter = "all" | "pass" | "due" | "failed";
 type Sort = "due" | "tested" | "alpha";
@@ -260,11 +261,9 @@ function AnchorRow({
               {dueText}
             </span>
             {a.inspector ? (
-              <span>
-                <span className="text-[var(--color-text-faint)] mr-1">By</span>
-                <strong className="text-[var(--color-text)] font-semibold">
-                  {a.inspector}
-                </strong>
+              <span className="inline-flex items-center gap-1.5">
+                <span className="text-[var(--color-text-faint)] mr-0.5">By</span>
+                <InspectorTag name={a.inspector} size={18} />
               </span>
             ) : null}
             {a.drawing ? (
