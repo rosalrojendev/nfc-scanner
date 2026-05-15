@@ -8,8 +8,16 @@ import { useToast } from "@/components/ui/toast";
 import { Avatar } from "@/components/ui/avatar";
 import { pinAnchor } from "@/lib/drawings-store";
 import { useAnchors } from "@/lib/store";
-import type { Anchor, AnchorStatus, Drawing } from "@/lib/types";
+import type {
+  Anchor,
+  AnchorStatus,
+  Drawing,
+  DrawingPin,
+} from "@/lib/types";
 import { Anchor as AnchorIcon, Check, MousePointerClick } from "lucide-react";
+
+const PIN_REF_W = 760;
+const PIN_REF_H = 420;
 
 interface PinAnchorDialogProps {
   drawing: Drawing;
@@ -49,16 +57,16 @@ export function PinAnchorDialog({
       });
   }, [anchors, drawing.anchors]);
 
-  function place(svg: SVGSVGElement, e: React.MouseEvent) {
+  function place(coords: { x: number; y: number }) {
     if (!chosen) return;
     const anchor = anchors.find((a) => a.id === chosen);
     if (!anchor) return;
-    const rect = svg.getBoundingClientRect();
-    const px = (e.clientX - rect.left) / rect.width;
-    const py = (e.clientY - rect.top) / rect.height;
-    const x = Math.round(px * 760);
-    const y = Math.round(py * 420);
-    pinAnchor(drawing.id, { id: anchor.id, x, y, status: anchor.status });
+    pinAnchor(drawing.id, {
+      id: anchor.id,
+      x: coords.x,
+      y: coords.y,
+      status: anchor.status,
+    });
     notify(`${anchor.id} pinned.`, "success");
     setChosen(null);
     onClose();
@@ -153,47 +161,108 @@ function PlaceStep({
   anchorId: string;
   drawing: Drawing;
   onCancel: () => void;
-  onPlace: (svg: SVGSVGElement, e: React.MouseEvent) => void;
+  onPlace: (coords: { x: number; y: number }) => void;
 }) {
+  const planAttachment = (drawing.attachments ?? []).find(
+    (a) => a.kind === "plan",
+  );
+  const imagePlanUrl =
+    planAttachment &&
+    !planAttachment.contentType?.includes("pdf") &&
+    !planAttachment.url.toLowerCase().endsWith(".pdf")
+      ? planAttachment.url
+      : null;
+
+  function pickFromRect(rect: DOMRect, clientX: number, clientY: number) {
+    const px = (clientX - rect.left) / rect.width;
+    const py = (clientY - rect.top) / rect.height;
+    onPlace({
+      x: Math.round(px * PIN_REF_W),
+      y: Math.round(py * PIN_REF_H),
+    });
+  }
+
   return (
     <>
       <p className="text-sm text-[var(--color-text-muted)] inline-flex items-center gap-1.5">
         <MousePointerClick size={14} /> Step 2 — tap anywhere on the plan to
         drop the {anchorId} pin.
       </p>
-      <div className="rounded-2xl overflow-hidden border border-[var(--color-border)] bg-[var(--color-surface-2)]">
-        <svg
-          viewBox="0 0 760 420"
-          className="w-full h-auto cursor-crosshair"
-          onClick={(e) => {
-            const target = e.currentTarget;
-            onPlace(target, e);
-          }}
-        >
-          <rect
-            x="30"
-            y="30"
-            width="700"
-            height="360"
-            rx="22"
-            fill="none"
-            stroke="currentColor"
-            opacity="0.18"
-            strokeWidth="2"
+      {imagePlanUrl ? (
+        <div className="rounded-2xl overflow-hidden border border-[var(--color-border)] bg-[var(--color-surface-2)] relative">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={imagePlanUrl}
+            alt="Plan"
+            draggable={false}
+            className="w-full h-auto block cursor-crosshair select-none"
+            onClick={(e) =>
+              pickFromRect(
+                e.currentTarget.getBoundingClientRect(),
+                e.clientX,
+                e.clientY,
+              )
+            }
           />
           {drawing.anchors.map((p) => (
-            <circle
-              key={p.id}
-              cx={p.x}
-              cy={p.y}
-              r="10"
-              fill={STATUS_COLOR[p.status]}
-              opacity="0.6"
-            />
+            <PinPreview key={p.id} pin={p} />
           ))}
-        </svg>
-      </div>
+        </div>
+      ) : (
+        <div className="rounded-2xl overflow-hidden border border-[var(--color-border)] bg-[var(--color-surface-2)]">
+          <svg
+            viewBox={`0 0 ${PIN_REF_W} ${PIN_REF_H}`}
+            className="w-full h-auto cursor-crosshair"
+            onClick={(e) =>
+              pickFromRect(
+                e.currentTarget.getBoundingClientRect(),
+                e.clientX,
+                e.clientY,
+              )
+            }
+          >
+            <rect
+              x="30"
+              y="30"
+              width="700"
+              height="360"
+              rx="22"
+              fill="none"
+              stroke="currentColor"
+              opacity="0.18"
+              strokeWidth="2"
+            />
+            {drawing.anchors.map((p) => (
+              <circle
+                key={p.id}
+                cx={p.x}
+                cy={p.y}
+                r="10"
+                fill={STATUS_COLOR[p.status]}
+                opacity="0.6"
+              />
+            ))}
+          </svg>
+        </div>
+      )}
       <Button onClick={onCancel}>Pick a different anchor</Button>
     </>
+  );
+}
+
+function PinPreview({ pin }: { pin: DrawingPin }) {
+  return (
+    <span
+      className="absolute -translate-x-1/2 -translate-y-1/2 pointer-events-none"
+      style={{
+        left: `${(pin.x / PIN_REF_W) * 100}%`,
+        top: `${(pin.y / PIN_REF_H) * 100}%`,
+      }}
+    >
+      <span
+        className="block w-3 h-3 rounded-full"
+        style={{ background: STATUS_COLOR[pin.status], opacity: 0.85 }}
+      />
+    </span>
   );
 }
