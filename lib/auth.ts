@@ -4,6 +4,7 @@ import { jwtVerify, SignJWT } from "jose";
 import bcrypt from "bcryptjs";
 import type { Role, SessionUser } from "./types";
 import { SESSION_COOKIE } from "./auth-constants";
+import { prisma } from "./db";
 
 export { SESSION_COOKIE };
 const SESSION_TTL_SECONDS = 60 * 60 * 8;
@@ -15,7 +16,7 @@ function getSecret(): Uint8Array {
   return new TextEncoder().encode(raw);
 }
 
-export interface SeedUser {
+export interface AuthUser {
   id: string;
   email: string;
   name: string;
@@ -25,40 +26,42 @@ export interface SeedUser {
 
 const DEMO_PASSWORD = "AnchorTag!2026";
 
-const _userCache = new Map<string, SeedUser>();
-function ensureSeedUsers(): SeedUser[] {
-  if (_userCache.size > 0) return Array.from(_userCache.values());
-  const hash = bcrypt.hashSync(DEMO_PASSWORD, 10);
-  const users: SeedUser[] = [
-    {
-      id: "u-inspector",
-      email: "kamata@kamloopsropeaccess.com",
-      name: "Justin Kamata",
-      role: "inspector",
-      passwordHash: hash,
-    },
-    {
-      id: "u-admin",
-      email: "admin@kamloopsropeaccess.com",
-      name: "S. Chen",
-      role: "admin",
-      passwordHash: hash,
-    },
-    {
-      id: "u-client",
-      email: "client@anchorclient.com",
-      name: "Client Viewer",
-      role: "client",
-      passwordHash: hash,
-    },
-  ];
-  for (const u of users) _userCache.set(u.email.toLowerCase(), u);
-  return users;
+export async function findUserByEmail(email: string): Promise<AuthUser | null> {
+  const u = await prisma.user.findUnique({
+    where: { email: email.toLowerCase() },
+  });
+  return u
+    ? {
+        id: u.id,
+        email: u.email,
+        name: u.name,
+        role: u.role,
+        passwordHash: u.passwordHash,
+      }
+    : null;
 }
 
-export function findUserByEmail(email: string): SeedUser | null {
-  ensureSeedUsers();
-  return _userCache.get(email.toLowerCase()) || null;
+export async function findUserById(id: string): Promise<AuthUser | null> {
+  const u = await prisma.user.findUnique({ where: { id } });
+  return u
+    ? {
+        id: u.id,
+        email: u.email,
+        name: u.name,
+        role: u.role,
+        passwordHash: u.passwordHash,
+      }
+    : null;
+}
+
+export async function listUsers(): Promise<
+  Array<Pick<AuthUser, "id" | "email" | "name" | "role">>
+> {
+  const rows = await prisma.user.findMany({
+    select: { id: true, email: true, name: true, role: true },
+    orderBy: { name: "asc" },
+  });
+  return rows;
 }
 
 export async function verifyPassword(

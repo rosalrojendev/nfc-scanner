@@ -8,6 +8,10 @@ import { Select, Label, Field } from "@/components/ui/input";
 import { SearchField } from "@/components/ui/search-field";
 import { Segmented } from "@/components/ui/segmented";
 import { useAnchors } from "@/lib/store";
+import { useProjectContext } from "@/components/shell/project-provider";
+import { useSession } from "@/components/shell/session-provider";
+import { can } from "@/lib/permissions";
+import { Button } from "@/components/ui/button";
 import { formatDate, daysUntil } from "@/lib/utils";
 import type { AnchorStatus } from "@/lib/types";
 import {
@@ -15,8 +19,10 @@ import {
   CheckCircle2,
   AlertTriangle,
   AlertOctagon,
+  Plus,
 } from "lucide-react";
 import { InspectorTag } from "@/components/inspector-tag";
+import { NewAnchorDialog } from "@/components/anchors/new-anchor-dialog";
 
 type Filter = "all" | "pass" | "due" | "failed";
 type Sort = "due" | "tested" | "alpha";
@@ -48,11 +54,22 @@ function StatusPill({ status }: { status: AnchorStatus }) {
 }
 
 export function AnchorsClient() {
-  const anchors = useAnchors();
+  const allAnchors = useAnchors();
+  const { currentProjectId } = useProjectContext();
+  const session = useSession();
+  const canCreate = can.editAnchor(session.role);
+  const anchors = React.useMemo(
+    () =>
+      currentProjectId
+        ? allAnchors.filter((a) => a.projectId === currentProjectId)
+        : allAnchors,
+    [allAnchors, currentProjectId],
+  );
   const [query, setQuery] = React.useState("");
   const [filter, setFilter] = React.useState<Filter>("all");
   const [building, setBuilding] = React.useState<string>("__all");
   const [sort, setSort] = React.useState<Sort>("due");
+  const [newOpen, setNewOpen] = React.useState(false);
 
   const buildings = React.useMemo(() => {
     const set = new Set<string>();
@@ -104,9 +121,20 @@ export function AnchorsClient() {
               Search and inspect anchors
             </h1>
           </div>
-          <Badge variant="default">
-            {filtered.length} of {anchors.length}
-          </Badge>
+          <div className="flex items-center gap-2 shrink-0">
+            <Badge variant="default">
+              {filtered.length} of {anchors.length}
+            </Badge>
+            {canCreate ? (
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => setNewOpen(true)}
+              >
+                <Plus size={14} /> New anchor
+              </Button>
+            ) : null}
+          </div>
         </div>
         <SearchField
           value={query}
@@ -181,6 +209,12 @@ export function AnchorsClient() {
           ))}
         </div>
       )}
+      {canCreate ? (
+        <NewAnchorDialog
+          open={newOpen}
+          onClose={() => setNewOpen(false)}
+        />
+      ) : null}
     </>
   );
 }

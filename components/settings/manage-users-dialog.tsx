@@ -15,6 +15,7 @@ import {
   type Inspector,
 } from "@/lib/settings-store";
 import { uploadAvatar } from "@/lib/avatar-upload";
+import { useProjectContext } from "@/components/shell/project-provider";
 import { Plus, Trash2, Camera, Loader2, X } from "lucide-react";
 
 interface ManageUsersDialogProps {
@@ -25,34 +26,50 @@ interface ManageUsersDialogProps {
 export function ManageUsersDialog({ open, onClose }: ManageUsersDialogProps) {
   const settings = useSettings();
   const { notify } = useToast();
+  const { currentProject, clients } = useProjectContext();
+  const currentClient = clients.find(
+    (c) => c.id === currentProject?.clientId,
+  );
+  const currentClientId = currentClient?.id;
+  const rosterForClient = currentClientId
+    ? settings.inspectors.filter((i) => i.clientId === currentClientId)
+    : settings.inspectors;
   const [draft, setDraft] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);
   const [busyId, setBusyId] = React.useState<string | null>(null);
 
-  function add() {
+  async function add() {
     const name = draft.trim();
     if (name.length < 2) {
       setError("Enter a full name (2+ characters).");
       return;
     }
-    if (settings.inspectors.some((i) => i.name === name)) {
-      setError("That inspector is already on the roster.");
+    if (!currentClientId) {
+      setError("Pick a current project to know which client to add to.");
       return;
     }
-    addInspector(name);
-    setDraft("");
-    setError(null);
-    notify(`${name} added to the roster.`, "success");
+    if (rosterForClient.some((i) => i.name === name)) {
+      setError("That inspector is already on this client's roster.");
+      return;
+    }
+    try {
+      await addInspector(currentClientId, name);
+      setDraft("");
+      setError(null);
+      notify(`${name} added to the roster.`, "success");
+    } catch (e) {
+      notify(e instanceof Error ? e.message : "Failed to add.", "error");
+    }
   }
 
-  function remove(insp: Inspector) {
-    if (settings.inspectors.length <= 1) {
-      notify("At least one inspector must remain on the roster.", "error");
-      return;
-    }
+  async function remove(insp: Inspector) {
     if (!confirm(`Remove ${insp.name} from the inspector roster?`)) return;
-    removeInspector(insp.id);
-    notify(`${insp.name} removed.`);
+    try {
+      await removeInspector(insp.id);
+      notify(`${insp.name} removed.`);
+    } catch (e) {
+      notify(e instanceof Error ? e.message : "Failed to remove.", "error");
+    }
   }
 
   async function handleAvatar(insp: Inspector, file: File | null) {
@@ -60,7 +77,7 @@ export function ManageUsersDialog({ open, onClose }: ManageUsersDialogProps) {
     setBusyId(insp.id);
     try {
       const url = await uploadAvatar(file);
-      updateInspector(insp.id, { avatar: url });
+      await updateInspector(insp.id, { avatar: url });
       notify(`${insp.name}'s avatar updated.`, "success");
     } catch (e) {
       notify(e instanceof Error ? e.message : "Upload failed.", "error");
@@ -69,8 +86,12 @@ export function ManageUsersDialog({ open, onClose }: ManageUsersDialogProps) {
     }
   }
 
-  function clearAvatar(insp: Inspector) {
-    updateInspector(insp.id, { avatar: null });
+  async function clearAvatar(insp: Inspector) {
+    try {
+      await updateInspector(insp.id, { avatar: null });
+    } catch (e) {
+      notify(e instanceof Error ? e.message : "Failed.", "error");
+    }
   }
 
   return (
@@ -82,8 +103,12 @@ export function ManageUsersDialog({ open, onClose }: ManageUsersDialogProps) {
         avatar to upload a photo.
       </p>
 
+      <p className="text-xs text-[var(--color-text-muted)]">
+        Roster for <strong>{currentClient?.name ?? "current client"}</strong>.
+        Switch projects in the top-bar to manage another client&apos;s roster.
+      </p>
       <div className="grid gap-2 max-h-[44vh] overflow-auto -mx-1 px-1">
-        {settings.inspectors.map((insp) => (
+        {rosterForClient.map((insp) => (
           <InspectorRow
             key={insp.id}
             inspector={insp}

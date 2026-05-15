@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { can } from "@/lib/permissions";
 import {
+  canAccessProject,
   deleteInspection,
   getInspection,
   saveInspection,
@@ -19,8 +20,8 @@ export async function GET(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const { id } = await params;
-  const inspection = getInspection(id);
-  if (!inspection) {
+  const inspection = await getInspection(id);
+  if (!inspection || !(await canAccessProject(session, inspection.projectId))) {
     return NextResponse.json(
       { error: "Inspection not found" },
       { status: 404 },
@@ -44,8 +45,8 @@ export async function PATCH(
     );
   }
   const { id } = await params;
-  const existing = getInspection(id);
-  if (!existing) {
+  const existing = await getInspection(id);
+  if (!existing || !(await canAccessProject(session, existing.projectId))) {
     return NextResponse.json(
       { error: "Inspection not found" },
       { status: 404 },
@@ -64,7 +65,7 @@ export async function PATCH(
       { status: 400 },
     );
   }
-  const updated = saveInspection({
+  const updated = await saveInspection({
     ...existing,
     ...parsed.data,
     updatedAt: new Date().toISOString(),
@@ -87,6 +88,13 @@ export async function DELETE(
     );
   }
   const { id } = await params;
-  const ok = deleteInspection(id);
+  const existing = await getInspection(id);
+  if (!existing || !(await canAccessProject(session, existing.projectId))) {
+    return NextResponse.json(
+      { error: "Inspection not found" },
+      { status: 404 },
+    );
+  }
+  const ok = await deleteInspection(id);
   return NextResponse.json({ ok });
 }

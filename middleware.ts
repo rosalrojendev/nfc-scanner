@@ -34,7 +34,7 @@ export async function middleware(req: NextRequest) {
   if (
     pathname.startsWith("/_next") ||
     pathname.startsWith("/api/auth") ||
-    pathname.startsWith("/api/photos") ||
+    pathname.startsWith("/api/uploadthing") ||
     PUBLIC_PATHS.includes(pathname) ||
     pathname === "/favicon.ico" ||
     isStaticAsset

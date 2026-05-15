@@ -1,7 +1,13 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { can } from "@/lib/permissions";
-import { listInspections, saveInspection } from "@/lib/server-store";
+import {
+  canAccessProject,
+  getAccessibleProjectIds,
+  getAnchor,
+  listInspections,
+  saveInspection,
+} from "@/lib/server-store";
 import { inspectionInputSchema } from "@/lib/validation";
 import { uid } from "@/lib/utils";
 import type { Inspection } from "@/lib/types";
@@ -15,8 +21,9 @@ export async function GET(req: Request) {
   }
   const url = new URL(req.url);
   const anchorId = url.searchParams.get("anchorId") ?? undefined;
+  const projectIds = await getAccessibleProjectIds(session);
   return NextResponse.json({
-    inspections: listInspections({ anchorId }),
+    inspections: await listInspections({ anchorId, projectIds }),
   });
 }
 
@@ -44,9 +51,14 @@ export async function POST(req: Request) {
       { status: 400 },
     );
   }
+  const anchor = await getAnchor(parsed.data.anchorId);
+  if (!anchor || !(await canAccessProject(session, anchor.projectId))) {
+    return NextResponse.json({ error: "Anchor not found" }, { status: 404 });
+  }
   const now = new Date().toISOString();
   const inspection: Inspection = {
     id: uid("ins"),
+    projectId: anchor.projectId,
     ...parsed.data,
     createdAt: now,
     updatedAt: now,
@@ -54,6 +66,6 @@ export async function POST(req: Request) {
     submittedByName: session.name,
     submittedByRole: session.role,
   };
-  const saved = saveInspection(inspection);
+  const saved = await saveInspection(inspection);
   return NextResponse.json({ inspection: saved }, { status: 201 });
 }

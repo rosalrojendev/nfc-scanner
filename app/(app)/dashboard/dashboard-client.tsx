@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { AnimatedCounter } from "@/components/animated-counter";
 import { useAnchors, useInspections } from "@/lib/store";
+import { useProjectContext } from "@/components/shell/project-provider";
 import { daysUntil } from "@/lib/utils";
 import { ScanLine, FileText, ClipboardCheck, Map as MapIcon } from "lucide-react";
 import { useSession } from "@/components/shell/session-provider";
@@ -14,8 +15,23 @@ import { can } from "@/lib/permissions";
 import { ROLE_META } from "@/lib/role-meta";
 
 export function DashboardClient() {
-  const anchors = useAnchors();
-  const inspections = useInspections();
+  const allAnchors = useAnchors();
+  const allInspections = useInspections();
+  const { currentProjectId } = useProjectContext();
+  const anchors = React.useMemo(
+    () =>
+      currentProjectId
+        ? allAnchors.filter((a) => a.projectId === currentProjectId)
+        : allAnchors,
+    [allAnchors, currentProjectId],
+  );
+  const inspections = React.useMemo(
+    () =>
+      currentProjectId
+        ? allInspections.filter((i) => i.projectId === currentProjectId)
+        : allInspections,
+    [allInspections, currentProjectId],
+  );
   const session = useSession();
   const role = session.role;
   const canScan = can.scan(role);

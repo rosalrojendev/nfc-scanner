@@ -4,6 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { Camera, ImagePlus, X, Loader2, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { uploadFiles } from "@/lib/uploadthing";
 
 interface PhotoUploadProps {
   photos: string[];
@@ -152,18 +153,9 @@ export function PhotoUpload({ photos, onChange, max = 6 }: PhotoUploadProps) {
 }
 
 async function uploadPhoto(file: File): Promise<string> {
-  const fd = new FormData();
-  fd.append("file", file);
-  const res = await fetch("/api/photos", {
-    method: "POST",
-    body: fd,
-  });
-  if (!res.ok) {
-    const j = await res.json().catch(() => ({}));
-    throw new Error(j.error || `Upload failed (${res.status})`);
-  }
-  const json = (await res.json()) as { url: string };
-  return json.url;
+  const [uploaded] = await uploadFiles("inspectionPhotos", { files: [file] });
+  if (!uploaded) throw new Error("Upload failed.");
+  return uploaded.ufsUrl;
 }
 
 async function downscaleFile(file: File, max: number): Promise<File> {

@@ -12,6 +12,7 @@ import { ROLE_META } from "@/lib/role-meta";
 import { can } from "@/lib/permissions";
 import { Avatar } from "@/components/ui/avatar";
 import { avatarFor, useSettings } from "@/lib/settings-store";
+import { ProjectSwitcher } from "./project-switcher";
 
 export function TopBar({ user }: { user: SessionUser }) {
   const router = useRouter();
@@ -78,6 +79,7 @@ export function TopBar({ user }: { user: SessionUser }) {
           </div>
         </Link>
         <div className="flex items-center gap-2">
+          <ProjectSwitcher />
           {canScan ? (
             <Link href="/scan" aria-label="Open scanner">
               <Button variant="default" size="icon">

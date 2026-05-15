@@ -27,7 +27,7 @@ export const inspectionInputSchema = z.object({
   drawingRef: z.string().max(120).optional().default(""),
   notes: z.string().max(2000, "Notes are too long.").optional().default(""),
   photos: z.array(z.string()).default([]),
-  signature: z.string().nullable().default(null),
+  signature: z.string().min(1, "A signature is required."),
 });
 
 export type InspectionInput = z.infer<typeof inspectionInputSchema>;
@@ -44,3 +44,21 @@ export const anchorPatchSchema = z.object({
 });
 
 export type AnchorPatchInput = z.infer<typeof anchorPatchSchema>;
+
+export const anchorCreateSchema = z.object({
+  id: z
+    .string()
+    .min(2, "ID must be at least 2 characters.")
+    .max(64, "ID is too long.")
+    .regex(
+      /^[A-Za-z0-9-]+$/,
+      "ID can only contain letters, digits, and dashes.",
+    ),
+  projectId: z.string().min(1, "Project is required."),
+  label: z.string().min(1, "Label is required.").max(120),
+  building: z.string().min(1, "Building is required.").max(120),
+  location: z.string().min(1, "Location is required.").max(160),
+  drawing: z.string().min(1, "Drawing reference is required.").max(120),
+});
+
+export type AnchorCreateInput = z.infer<typeof anchorCreateSchema>;

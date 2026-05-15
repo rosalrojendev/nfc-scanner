@@ -17,11 +17,11 @@ const securityHeaders = [
     key: "Content-Security-Policy",
     value: [
       "default-src 'self'",
-      "img-src 'self' data: blob:",
+      "img-src 'self' data: blob: https://*.utfs.io https://*.ufs.sh",
       "media-src 'self' blob:",
       "style-src 'self' 'unsafe-inline'",
       "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
-      "connect-src 'self'",
+      "connect-src 'self' https://*.ingest.uploadthing.com https://uploadthing.com https://*.ufs.sh https://*.utfs.io",
       "font-src 'self' data:",
       "object-src 'none'",
       "frame-ancestors 'none'",

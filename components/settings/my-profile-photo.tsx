@@ -28,7 +28,7 @@ export function MyProfilePhoto() {
     setBusy(true);
     try {
       const url = await uploadAvatar(file);
-      setMyAvatar(session.id, session.name, url);
+      await setMyAvatar(url);
       notify("Profile photo updated.", "success");
     } catch (e) {
       notify(e instanceof Error ? e.message : "Upload failed.", "error");
@@ -37,9 +37,13 @@ export function MyProfilePhoto() {
     }
   }
 
-  function clear() {
-    setMyAvatar(session.id, session.name, null);
-    notify("Profile photo removed.");
+  async function clear() {
+    try {
+      await setMyAvatar(null);
+      notify("Profile photo removed.");
+    } catch (e) {
+      notify(e instanceof Error ? e.message : "Failed.", "error");
+    }
   }
 
   return (

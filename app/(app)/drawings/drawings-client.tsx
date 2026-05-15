@@ -35,9 +35,11 @@ import {
 const PIN_REF_W = 760;
 const PIN_REF_H = 420;
 import { useSession } from "@/components/shell/session-provider";
+import { useProjectContext } from "@/components/shell/project-provider";
 import { can } from "@/lib/permissions";
 import { UploadDrawingDialog } from "@/components/drawings/upload-drawing-dialog";
 import { PinAnchorDialog } from "@/components/drawings/pin-anchor-dialog";
+import { uploadFiles } from "@/lib/uploadthing";
 import { formatDate } from "@/lib/utils";
 
 const statusColor: Record<AnchorStatus, string> = {
@@ -52,9 +54,19 @@ export function DrawingsClient() {
   const router = useRouter();
   const anchors = useAnchors();
   const session = useSession();
+  const { currentProjectId } = useProjectContext();
   const canUpload = can.uploadDrawings(session.role);
   const { notify } = useToast();
-  const drawings = useDrawings();
+  const allDrawings = useDrawings();
+  const drawings = React.useMemo(
+    () =>
+      currentProjectId
+        ? allDrawings.filter(
+            (d) => !d.projectId || d.projectId === currentProjectId,
+          )
+        : allDrawings,
+    [allDrawings, currentProjectId],
+  );
 
   const [uploadOpen, setUploadOpen] = React.useState(false);
   const [pinDrawing, setPinDrawing] = React.useState<Drawing | null>(null);
@@ -90,25 +102,19 @@ export function DrawingsClient() {
     }
     setBusyAttachOn(drawingId);
     try {
-      const fd = new FormData();
-      fd.append("file", file);
-      const res = await fetch("/api/photos", {
-        method: "POST",
-        body: fd,
-      });
-      if (!res.ok) {
-        const j = await res.json().catch(() => ({}));
-        throw new Error(j.error || `Upload failed (${res.status})`);
-      }
-      const j = (await res.json()) as { url: string; contentType?: string };
+      const [uploaded] = await uploadFiles(
+        kind === "pdf" ? "drawingPdf" : "drawingImage",
+        { files: [file] },
+      );
+      if (!uploaded) throw new Error("Upload failed.");
       addAttachment(drawingId, {
         kind,
         label:
           kind === "pdf"
             ? "PDF"
             : file.name.replace(/\.[^.]+$/, "").slice(0, 32) || "Detail",
-        url: j.url,
-        contentType: j.contentType ?? file.type,
+        url: uploaded.ufsUrl,
+        contentType: file.type,
       });
       notify(
         kind === "pdf" ? "PDF attached." : "Detail sheet added.",

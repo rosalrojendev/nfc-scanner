@@ -23,6 +23,16 @@ import type { Inspection, InspectionResult } from "@/lib/types";
 import { ClipboardCheck, Save, X, Loader2 } from "lucide-react";
 import { NfcWriter } from "@/components/scan/nfc-writer";
 import { buildPayload } from "@/lib/nfc-payload";
+import { uploadFiles } from "@/lib/uploadthing";
+
+async function dataUrlToFile(
+  dataUrl: string,
+  filename = "signature.png",
+): Promise<File> {
+  const res = await fetch(dataUrl);
+  const blob = await res.blob();
+  return new File([blob], filename, { type: blob.type || "image/png" });
+}
 
 function todayISO() {
   return new Date().toISOString().slice(0, 10);
@@ -37,6 +47,7 @@ function nextYearISO() {
 function emptyDraft(anchorId = "", defaultInspector = ""): Inspection {
   return {
     id: "",
+    projectId: "",
     anchorId,
     inspector: defaultInspector,
     testDate: todayISO(),
@@ -94,9 +105,26 @@ export function InspectionFormClient() {
     setErrors({});
     setSubmitting(true);
     try {
+      // If the signature is still a data URL (user drew but didn't hit Save),
+      // upload it to UploadThing now so we don't persist base64 in the DB.
+      let payload = parsed.data;
+      if (payload.signature.startsWith("data:")) {
+        try {
+          const file = await dataUrlToFile(payload.signature);
+          const [uploaded] = await uploadFiles("avatarOrSignature", {
+            files: [file],
+          });
+          if (uploaded) {
+            payload = { ...payload, signature: uploaded.ufsUrl };
+            update("signature", uploaded.ufsUrl);
+          }
+        } catch {
+          // Fall through with the data URL if upload fails.
+        }
+      }
       const saved = editingId
-        ? await updateInspection(editingId, parsed.data)
-        : await createInspection(parsed.data);
+        ? await updateInspection(editingId, payload)
+        : await createInspection(payload);
       setSavedInspection(saved);
       notify(
         editingId
@@ -254,6 +282,7 @@ export function InspectionFormClient() {
                 value={draft.signature}
                 onChange={(v) => update("signature", v)}
               />
+              <FieldError message={errors.signature} />
             </div>
           </div>
 
@@ -261,7 +290,14 @@ export function InspectionFormClient() {
             <Button type="button" onClick={() => router.back()}>
               <X size={16} /> Cancel
             </Button>
-            <Button variant="primary" type="submit" disabled={submitting}>
+            <Button
+              variant="primary"
+              type="submit"
+              disabled={submitting || !draft.signature}
+              title={
+                !draft.signature ? "Sign before submitting." : undefined
+              }
+            >
               {submitting ? (
                 <Loader2 size={16} className="animate-spin" />
               ) : (

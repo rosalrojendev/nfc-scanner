@@ -1,185 +1,102 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import { SEED_DRAWINGS } from "./seed";
 import type {
   AnchorStatus,
   Drawing,
-  DrawingAttachment,
   DrawingAttachmentKind,
-  DrawingPin,
 } from "./types";
 
-const KEY = "atp.drawings.v1";
+// Module-scoped cache, populated on first subscribe.
+let cache: Drawing[] = [];
+let bootstrapped = false;
+let bootstrapping: Promise<void> | null = null;
+const FROZEN_EMPTY = Object.freeze([]) as unknown as Drawing[];
 
 function isClient() {
   return typeof window !== "undefined";
 }
 
-function generateToken(prefix: string): string {
-  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
-    return `${prefix}-${crypto.randomUUID().replace(/-/g, "").slice(0, 12)}`;
-  }
-  return `${prefix}-${Math.random().toString(36).slice(2, 14)}`;
-}
-
-function normalize(d: Drawing): Drawing {
-  return {
-    ...d,
-    anchors: d.anchors.map((a) => ({ ...a })),
-    attachments: d.attachments?.map((a) => ({ ...a })) ?? [],
-    planUrl: d.planUrl ?? null,
-    createdAt: d.createdAt,
-    custom: d.custom ?? false,
-  };
-}
-
-const SEED_NORMALIZED: Drawing[] = SEED_DRAWINGS.map(normalize);
-
-const DEFAULTS: Drawing[] = SEED_NORMALIZED.map((d) =>
-  Object.freeze({
-    ...d,
-    anchors: Object.freeze(d.anchors) as unknown as DrawingPin[],
-    attachments: Object.freeze(d.attachments ?? []) as unknown as DrawingAttachment[],
-  }) as Drawing,
-);
-const FROZEN_DEFAULTS = Object.freeze(DEFAULTS) as unknown as Drawing[];
-
-let cache: Drawing[] | null = null;
-
-function readState(): Drawing[] {
-  if (!isClient()) return FROZEN_DEFAULTS;
-  if (cache) return cache;
-  try {
-    const raw = window.localStorage.getItem(KEY);
-    if (!raw) {
-      cache = FROZEN_DEFAULTS;
-      return cache;
-    }
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) {
-      cache = FROZEN_DEFAULTS;
-      return cache;
-    }
-    const out: Drawing[] = [];
-    for (const item of parsed) {
-      if (
-        item &&
-        typeof item === "object" &&
-        typeof item.id === "string" &&
-        typeof item.building === "string" &&
-        typeof item.level === "string" &&
-        typeof item.reference === "string" &&
-        Array.isArray(item.anchors)
-      ) {
-        out.push({
-          id: item.id,
-          building: item.building,
-          level: item.level,
-          reference: item.reference,
-          anchors: item.anchors.filter(
-            (p: unknown): p is DrawingPin =>
-              !!p &&
-              typeof p === "object" &&
-              typeof (p as DrawingPin).id === "string" &&
-              typeof (p as DrawingPin).x === "number" &&
-              typeof (p as DrawingPin).y === "number",
-          ),
-          attachments: Array.isArray(item.attachments)
-            ? item.attachments.filter(
-                (a: unknown): a is DrawingAttachment =>
-                  !!a &&
-                  typeof a === "object" &&
-                  typeof (a as DrawingAttachment).id === "string" &&
-                  typeof (a as DrawingAttachment).url === "string",
-              )
-            : [],
-          planUrl: typeof item.planUrl === "string" ? item.planUrl : null,
-          createdAt: item.createdAt,
-          custom: !!item.custom,
-        });
-      }
-    }
-    cache = out.length > 0 ? out : FROZEN_DEFAULTS;
-    return cache;
-  } catch {
-    cache = FROZEN_DEFAULTS;
-    return cache;
-  }
-}
-
 const listeners = new Set<() => void>();
 
 function notify() {
-  cache = null;
   for (const l of listeners) l();
 }
 
 function subscribe(cb: () => void) {
   listeners.add(cb);
-  return () => {
-    listeners.delete(cb);
-  };
-}
-
-if (isClient()) {
-  window.addEventListener("storage", (e) => {
-    if (e.key === KEY) notify();
-  });
-}
-
-function writeState(next: Drawing[]) {
-  if (!isClient()) return;
-  try {
-    window.localStorage.setItem(KEY, JSON.stringify(next));
-    notify();
-  } catch {
-    // quota — ignore
+  if (isClient() && !bootstrapped && !bootstrapping) {
+    void bootstrap();
   }
+  return () => listeners.delete(cb);
+}
+
+async function bootstrap(): Promise<void> {
+  if (!isClient() || bootstrapped) return;
+  bootstrapping ??= (async () => {
+    try {
+      await refetch();
+      bootstrapped = true;
+    } finally {
+      bootstrapping = null;
+    }
+  })();
+  await bootstrapping;
+}
+
+export async function refetch(): Promise<void> {
+  if (!isClient()) return;
+  const r = await fetch("/api/drawings", { credentials: "include" });
+  if (!r.ok) return;
+  const j = (await r.json()) as { drawings: Drawing[] };
+  cache = j.drawings;
+  notify();
 }
 
 export function getDrawings(): Drawing[] {
-  return readState();
+  return cache;
 }
 
 export function useDrawings(): Drawing[] {
-  return useSyncExternalStore(subscribe, readState, () => FROZEN_DEFAULTS);
+  return useSyncExternalStore(subscribe, getDrawings, () => FROZEN_EMPTY);
 }
 
-export function addDrawing(input: {
+export async function addDrawing(input: {
+  projectId: string;
   building: string;
   level: string;
   reference: string;
   planUrl?: string | null;
   planContentType?: string;
-}): Drawing {
-  const drawing: Drawing = {
-    id: generateToken("dw"),
-    building: input.building.trim(),
-    level: input.level.trim(),
-    reference: input.reference.trim(),
-    anchors: [],
-    attachments: input.planUrl
-      ? [
-          {
-            id: generateToken("att"),
-            kind: "plan",
-            label: "Plan",
-            url: input.planUrl,
-            contentType: input.planContentType,
-            addedAt: new Date().toISOString(),
-          },
-        ]
-      : [],
-    planUrl: input.planUrl ?? null,
-    createdAt: new Date().toISOString(),
-    custom: true,
-  };
-  writeState([drawing, ...readState()]);
-  return drawing;
+}): Promise<Drawing> {
+  const r = await fetch("/api/drawings", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(input),
+  });
+  if (!r.ok) {
+    const j = await r.json().catch(() => ({}));
+    throw new Error(j.error || `Failed to add drawing (${r.status})`);
+  }
+  const j = (await r.json()) as { drawing: Drawing };
+  await refetch();
+  return j.drawing;
 }
 
-export function addAttachment(
+export async function deleteDrawing(drawingId: string): Promise<void> {
+  const r = await fetch(`/api/drawings/${encodeURIComponent(drawingId)}`, {
+    method: "DELETE",
+    credentials: "include",
+  });
+  if (!r.ok) {
+    const j = await r.json().catch(() => ({}));
+    throw new Error(j.error || `Failed to delete drawing (${r.status})`);
+  }
+  await refetch();
+}
+
+export async function addAttachment(
   drawingId: string,
   input: {
     kind: DrawingAttachmentKind;
@@ -187,70 +104,74 @@ export function addAttachment(
     url: string;
     contentType?: string;
   },
-): DrawingAttachment | null {
-  const state = readState();
-  const idx = state.findIndex((d) => d.id === drawingId);
-  if (idx < 0) return null;
-  const att: DrawingAttachment = {
-    id: generateToken("att"),
-    kind: input.kind,
-    label: input.label.trim() || input.kind,
-    url: input.url,
-    contentType: input.contentType,
-    addedAt: new Date().toISOString(),
-  };
-  const next = state.slice();
-  next[idx] = {
-    ...state[idx],
-    attachments: [...(state[idx].attachments ?? []), att],
-  };
-  writeState(next);
-  return att;
+): Promise<void> {
+  const r = await fetch(
+    `/api/drawings/${encodeURIComponent(drawingId)}/attachments`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(input),
+    },
+  );
+  if (!r.ok) {
+    const j = await r.json().catch(() => ({}));
+    throw new Error(j.error || `Failed to add attachment (${r.status})`);
+  }
+  await refetch();
 }
 
-export function removeAttachment(drawingId: string, attachmentId: string) {
-  const state = readState();
-  const idx = state.findIndex((d) => d.id === drawingId);
-  if (idx < 0) return;
-  const next = state.slice();
-  next[idx] = {
-    ...state[idx],
-    attachments: (state[idx].attachments ?? []).filter(
-      (a) => a.id !== attachmentId,
-    ),
-  };
-  writeState(next);
+export async function removeAttachment(
+  drawingId: string,
+  attachmentId: string,
+): Promise<void> {
+  const r = await fetch(
+    `/api/drawings/${encodeURIComponent(drawingId)}/attachments/${encodeURIComponent(attachmentId)}`,
+    { method: "DELETE", credentials: "include" },
+  );
+  if (!r.ok) {
+    const j = await r.json().catch(() => ({}));
+    throw new Error(j.error || `Failed to remove attachment (${r.status})`);
+  }
+  await refetch();
 }
 
-export function pinAnchor(
+export async function pinAnchor(
   drawingId: string,
   pin: { id: string; x: number; y: number; status: AnchorStatus },
-) {
-  const state = readState();
-  const idx = state.findIndex((d) => d.id === drawingId);
-  if (idx < 0) return;
-  const next = state.slice();
-  const existing = state[idx].anchors.filter((a) => a.id !== pin.id);
-  next[idx] = {
-    ...state[idx],
-    anchors: [...existing, pin],
-  };
-  writeState(next);
+): Promise<void> {
+  const r = await fetch(
+    `/api/drawings/${encodeURIComponent(drawingId)}/pins`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({
+        anchorId: pin.id,
+        x: pin.x,
+        y: pin.y,
+        status: pin.status,
+      }),
+    },
+  );
+  if (!r.ok) {
+    const j = await r.json().catch(() => ({}));
+    throw new Error(j.error || `Failed to pin anchor (${r.status})`);
+  }
+  await refetch();
 }
 
-export function unpinAnchor(drawingId: string, anchorId: string) {
-  const state = readState();
-  const idx = state.findIndex((d) => d.id === drawingId);
-  if (idx < 0) return;
-  const next = state.slice();
-  next[idx] = {
-    ...state[idx],
-    anchors: state[idx].anchors.filter((a) => a.id !== anchorId),
-  };
-  writeState(next);
-}
-
-export function deleteDrawing(drawingId: string) {
-  const state = readState();
-  writeState(state.filter((d) => d.id !== drawingId));
+export async function unpinAnchor(
+  drawingId: string,
+  anchorId: string,
+): Promise<void> {
+  const r = await fetch(
+    `/api/drawings/${encodeURIComponent(drawingId)}/pins/${encodeURIComponent(anchorId)}`,
+    { method: "DELETE", credentials: "include" },
+  );
+  if (!r.ok) {
+    const j = await r.json().catch(() => ({}));
+    throw new Error(j.error || `Failed to unpin anchor (${r.status})`);
+  }
+  await refetch();
 }

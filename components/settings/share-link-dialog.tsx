@@ -12,6 +12,7 @@ import {
   shareLinkUrl,
   useSettings,
 } from "@/lib/settings-store";
+import { useProjectContext } from "@/components/shell/project-provider";
 import { formatDate } from "@/lib/utils";
 import { Copy, Link2, Trash2, Check } from "lucide-react";
 
@@ -23,6 +24,7 @@ interface ShareLinkDialogProps {
 export function ShareLinkDialog({ open, onClose }: ShareLinkDialogProps) {
   const settings = useSettings();
   const { notify } = useToast();
+  const { currentProject } = useProjectContext();
   const [label, setLabel] = React.useState("");
   const [justCopied, setJustCopied] = React.useState<string | null>(null);
 
@@ -37,16 +39,31 @@ export function ShareLinkDialog({ open, onClose }: ShareLinkDialogProps) {
     }
   }
 
-  function generate() {
-    const link = createShareLink(label || "Shared report");
-    setLabel("");
-    void copyToClipboard(shareLinkUrl(link.id));
+  async function generate() {
+    if (!currentProject) {
+      notify("Pick a current project first.", "error");
+      return;
+    }
+    try {
+      const link = await createShareLink(
+        currentProject.id,
+        label || "Shared report",
+      );
+      setLabel("");
+      void copyToClipboard(shareLinkUrl(link.id));
+    } catch (e) {
+      notify(e instanceof Error ? e.message : "Failed.", "error");
+    }
   }
 
-  function revoke(id: string) {
+  async function revoke(id: string) {
     if (!confirm("Revoke this share link?")) return;
-    revokeShareLink(id);
-    notify("Link revoked.");
+    try {
+      await revokeShareLink(id);
+      notify("Link revoked.");
+    } catch (e) {
+      notify(e instanceof Error ? e.message : "Failed.", "error");
+    }
   }
 
   return (

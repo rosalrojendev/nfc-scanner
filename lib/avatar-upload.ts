@@ -1,5 +1,7 @@
 "use client";
 
+import { uploadFiles } from "@/lib/uploadthing";
+
 const AVATAR_MAX_BYTES = 4 * 1024 * 1024;
 
 export const AVATAR_LIMITS = {
@@ -15,15 +17,11 @@ export async function uploadAvatar(file: File): Promise<string> {
     throw new Error("Avatar must be 4 MB or smaller.");
   }
   const downscaled = await downscaleSquare(file, AVATAR_LIMITS.squareSize);
-  const fd = new FormData();
-  fd.append("file", downscaled);
-  const res = await fetch("/api/photos", { method: "POST", body: fd });
-  if (!res.ok) {
-    const j = await res.json().catch(() => ({}));
-    throw new Error(j.error || `Upload failed (${res.status})`);
-  }
-  const json = (await res.json()) as { url: string };
-  return json.url;
+  const [uploaded] = await uploadFiles("avatarOrSignature", {
+    files: [downscaled],
+  });
+  if (!uploaded) throw new Error("Upload failed.");
+  return uploaded.ufsUrl;
 }
 
 async function downscaleSquare(file: File, size: number): Promise<File> {

@@ -22,10 +22,13 @@ import {
   useSettings,
 } from "@/lib/settings-store";
 import { ManageUsersDialog } from "@/components/settings/manage-users-dialog";
+import { ManageTenantsDialog } from "@/components/settings/manage-tenants-dialog";
 import { RemindersDialog } from "@/components/settings/reminders-dialog";
 import { ShareLinkDialog } from "@/components/settings/share-link-dialog";
 import { MyProfilePhoto } from "@/components/settings/my-profile-photo";
 import { Avatar } from "@/components/ui/avatar";
+import { useProjectContext } from "@/components/shell/project-provider";
+import { Building2 } from "lucide-react";
 
 export function SettingsClient() {
   const { notify } = useToast();
@@ -38,6 +41,8 @@ export function SettingsClient() {
   const [usersOpen, setUsersOpen] = React.useState(false);
   const [remindersOpen, setRemindersOpen] = React.useState(false);
   const [shareOpen, setShareOpen] = React.useState(false);
+  const [tenantsOpen, setTenantsOpen] = React.useState(false);
+  const { canManageAnyClient, clients, projects } = useProjectContext();
 
   async function reset() {
     if (
@@ -164,6 +169,27 @@ export function SettingsClient() {
         ) : null}
       </Card>
 
+      {canManageAnyClient ? (
+        <Card>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <Eyebrow>Tenancy</Eyebrow>
+              <h2 className="text-lg font-semibold tracking-tight mt-1 inline-flex items-center gap-2">
+                <Building2 size={18} /> Clients &amp; projects
+              </h2>
+              <p className="text-sm text-[var(--color-text-muted)] mt-1">
+                {clients.length} client{clients.length === 1 ? "" : "s"} ·{" "}
+                {projects.length} project
+                {projects.length === 1 ? "" : "s"} you can manage.
+              </p>
+            </div>
+            <Button variant="primary" onClick={() => setTenantsOpen(true)}>
+              Manage
+            </Button>
+          </div>
+        </Card>
+      ) : null}
+
       <MyProfilePhoto />
 
       <Card>
@@ -236,6 +262,12 @@ export function SettingsClient() {
             onClose={() => setShareOpen(false)}
           />
         </>
+      ) : null}
+      {canManageAnyClient ? (
+        <ManageTenantsDialog
+          open={tenantsOpen}
+          onClose={() => setTenantsOpen(false)}
+        />
       ) : null}
     </>
   );

@@ -84,6 +84,29 @@ export function getAnchor(id: string): Anchor | null {
   return anchorsCache.find((a) => a.id === id) || null;
 }
 
+export async function createAnchor(payload: {
+  id: string;
+  projectId: string;
+  label: string;
+  building: string;
+  location: string;
+  drawing: string;
+}): Promise<Anchor> {
+  const r = await fetch("/api/anchors", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(payload),
+  });
+  if (!r.ok) {
+    const j = await r.json().catch(() => ({}));
+    throw new Error(j.error || `Failed to create anchor (${r.status})`);
+  }
+  await refetchAnchors();
+  const j = (await r.json()) as { anchor: Anchor };
+  return j.anchor;
+}
+
 export async function patchAnchor(
   id: string,
   patch: Partial<Pick<Anchor, "label" | "building" | "location" | "drawing">>,
@@ -130,7 +153,7 @@ export interface InspectionPayload {
   drawingRef: string;
   notes: string;
   photos: string[];
-  signature: string | null;
+  signature: string;
 }
 
 export async function createInspection(

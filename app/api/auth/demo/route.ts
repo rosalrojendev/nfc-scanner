@@ -25,7 +25,7 @@ export async function POST(req: Request) {
     client: "client@anchorclient.com",
   } as const;
 
-  const user = findUserByEmail(emailByRole[role]);
+  const user = await findUserByEmail(emailByRole[role]);
   if (!user) {
     return NextResponse.json(
       { error: "Demo user is unavailable." },
