@@ -39,19 +39,22 @@ export async function POST(req: Request) {
       { status: 400 },
     );
   }
-  if (!getClient(parsed.data.clientId)) {
+  if (!(await getClient(parsed.data.clientId))) {
     return NextResponse.json({ error: "Client not found" }, { status: 404 });
   }
-  if (!canManageClient(session, parsed.data.clientId)) {
+  if (!(await canManageClient(session, parsed.data.clientId))) {
     return NextResponse.json(
       { error: "You are not an admin on this client." },
       { status: 403 },
     );
   }
-  if (!findUserById(parsed.data.userId)) {
+  if (!(await findUserById(parsed.data.userId))) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
-  const membership = upsertMembership(parsed.data);
+  const membership = await upsertMembership({
+    ...parsed.data,
+    role: parsed.data.role,
+  });
   return NextResponse.json({ membership }, { status: 201 });
 }
 
@@ -73,7 +76,7 @@ export async function DELETE(req: Request) {
       { status: 400 },
     );
   }
-  if (!canManageClient(session, parsed.data.clientId)) {
+  if (!(await canManageClient(session, parsed.data.clientId))) {
     return NextResponse.json(
       { error: "You are not an admin on this client." },
       { status: 403 },
@@ -88,6 +91,6 @@ export async function DELETE(req: Request) {
       { status: 400 },
     );
   }
-  const ok = removeMembership(parsed.data.userId, parsed.data.clientId);
+  const ok = await removeMembership(parsed.data.userId, parsed.data.clientId);
   return NextResponse.json({ ok });
 }

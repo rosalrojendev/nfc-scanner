@@ -13,8 +13,8 @@ export default async function AnchorDetailPage({
   const { id } = await params;
   const session = await getSession();
   if (!session) notFound();
-  const anchor = getAnchor(id);
-  if (!anchor || !canAccessProject(session, anchor.projectId)) {
+  const anchor = await getAnchor(id);
+  if (!anchor || !(await canAccessProject(session, anchor.projectId))) {
     notFound();
   }
   return <AnchorDetailClient id={id} />;

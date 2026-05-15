@@ -28,7 +28,7 @@ export async function POST(req: Request) {
       { status: 400 },
     );
   }
-  if (!canAccessProject(session, parsed.data.projectId)) {
+  if (!(await canAccessProject(session, parsed.data.projectId))) {
     return NextResponse.json({ error: "Project not found" }, { status: 404 });
   }
   await setCurrentProjectCookie(parsed.data.projectId);

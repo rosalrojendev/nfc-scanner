@@ -53,7 +53,7 @@ export async function POST(req: Request) {
   }
   const { email, password, role } = parsed.data;
 
-  const user = findUserByEmail(email);
+  const user = await findUserByEmail(email);
   if (!user) {
     return NextResponse.json(
       { error: "Email or passcode is incorrect." },

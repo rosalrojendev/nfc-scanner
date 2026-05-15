@@ -21,9 +21,9 @@ export async function GET(req: Request) {
   }
   const url = new URL(req.url);
   const anchorId = url.searchParams.get("anchorId") ?? undefined;
-  const projectIds = getAccessibleProjectIds(session);
+  const projectIds = await getAccessibleProjectIds(session);
   return NextResponse.json({
-    inspections: listInspections({ anchorId, projectIds }),
+    inspections: await listInspections({ anchorId, projectIds }),
   });
 }
 
@@ -51,8 +51,8 @@ export async function POST(req: Request) {
       { status: 400 },
     );
   }
-  const anchor = getAnchor(parsed.data.anchorId);
-  if (!anchor || !canAccessProject(session, anchor.projectId)) {
+  const anchor = await getAnchor(parsed.data.anchorId);
+  if (!anchor || !(await canAccessProject(session, anchor.projectId))) {
     return NextResponse.json({ error: "Anchor not found" }, { status: 404 });
   }
   const now = new Date().toISOString();
@@ -66,6 +66,6 @@ export async function POST(req: Request) {
     submittedByName: session.name,
     submittedByRole: session.role,
   };
-  const saved = saveInspection(inspection);
+  const saved = await saveInspection(inspection);
   return NextResponse.json({ inspection: saved }, { status: 201 });
 }

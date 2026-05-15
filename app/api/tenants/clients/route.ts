@@ -35,7 +35,7 @@ export async function POST(req: Request) {
     );
   }
   let id = uid("client");
-  while (getClient(id)) id = uid("client");
-  const client = upsertClient({ id, name: parsed.data.name.trim() });
+  while (await getClient(id)) id = uid("client");
+  const client = await upsertClient({ id, name: parsed.data.name.trim() });
   return NextResponse.json({ client }, { status: 201 });
 }

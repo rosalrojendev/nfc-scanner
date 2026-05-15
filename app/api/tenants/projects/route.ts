@@ -35,18 +35,18 @@ export async function POST(req: Request) {
       { status: 400 },
     );
   }
-  if (!getClient(parsed.data.clientId)) {
+  if (!(await getClient(parsed.data.clientId))) {
     return NextResponse.json({ error: "Client not found" }, { status: 404 });
   }
-  if (!canManageClient(session, parsed.data.clientId)) {
+  if (!(await canManageClient(session, parsed.data.clientId))) {
     return NextResponse.json(
       { error: "You are not an admin on this client." },
       { status: 403 },
     );
   }
   let id = uid("proj");
-  while (getProject(id)) id = uid("proj");
-  const project = upsertProject({
+  while (await getProject(id)) id = uid("proj");
+  const project = await upsertProject({
     id,
     clientId: parsed.data.clientId,
     name: parsed.data.name.trim(),

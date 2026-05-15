@@ -13,16 +13,20 @@ export async function GET() {
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  const clients = listManageableClients(session);
+  const clients = await listManageableClients(session);
   if (clients.length === 0) {
     return NextResponse.json(
       { error: "You do not have tenant management permissions." },
       { status: 403 },
     );
   }
-  const projects = clients.flatMap((c) => listProjectsForClient(c.id));
-  const memberships = clients.flatMap((c) => listMembershipsForClient(c.id));
-  const users = session.role === "admin" ? listUsers() : [];
+  const [projectsByClient, membershipsByClient, users] = await Promise.all([
+    Promise.all(clients.map((c) => listProjectsForClient(c.id))),
+    Promise.all(clients.map((c) => listMembershipsForClient(c.id))),
+    session.role === "admin" ? listUsers() : Promise.resolve([]),
+  ]);
+  const projects = projectsByClient.flat();
+  const memberships = membershipsByClient.flat();
   return NextResponse.json({
     isPlatformAdmin: session.role === "admin",
     clients,

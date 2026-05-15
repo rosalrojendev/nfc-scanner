@@ -20,16 +20,19 @@ export interface ProjectContextData {
 export async function getProjectContext(
   session: SessionUser,
 ): Promise<ProjectContextData> {
-  const accessibleProjectIds = getAccessibleProjectIds(session);
-  const projects = listProjects().filter((p) =>
-    accessibleProjectIds.has(p.id),
-  );
-  const accessibleClientIds = new Set(projects.map((p) => p.clientId));
-  const clients = listClients().filter((c) =>
-    accessibleClientIds.has(c.id),
-  );
+  const [accessibleProjectIds, allProjects, allClients, manageable, store] =
+    await Promise.all([
+      getAccessibleProjectIds(session),
+      listProjects(),
+      listClients(),
+      listManageableClients(session),
+      cookies(),
+    ]);
 
-  const store = await cookies();
+  const projects = allProjects.filter((p) => accessibleProjectIds.has(p.id));
+  const accessibleClientIds = new Set(projects.map((p) => p.clientId));
+  const clients = allClients.filter((c) => accessibleClientIds.has(c.id));
+
   const cookieValue = store.get(CURRENT_PROJECT_COOKIE)?.value;
   let currentProjectId: string | null = null;
   if (cookieValue && accessibleProjectIds.has(cookieValue)) {
@@ -38,9 +41,12 @@ export async function getProjectContext(
     currentProjectId = projects[0].id;
   }
 
-  const canManageAnyClient = listManageableClients(session).length > 0;
-
-  return { clients, projects, currentProjectId, canManageAnyClient };
+  return {
+    clients,
+    projects,
+    currentProjectId,
+    canManageAnyClient: manageable.length > 0,
+  };
 }
 
 export async function setCurrentProjectCookie(

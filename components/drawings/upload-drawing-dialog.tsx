@@ -8,6 +8,7 @@ import { Field, FieldError, Input, Label } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
 import { addDrawing } from "@/lib/drawings-store";
 import { useProjectContext } from "@/components/shell/project-provider";
+import { uploadFiles } from "@/lib/uploadthing";
 import { FileUp, Loader2, Image as ImageIcon } from "lucide-react";
 
 interface UploadDrawingDialogProps {
@@ -62,22 +63,22 @@ export function UploadDrawingDialog({
           setSubmitting(false);
           return;
         }
-        const fd = new FormData();
-        fd.append("file", file);
-        const res = await fetch("/api/photos", {
-          method: "POST",
-          body: fd,
-        });
-        if (!res.ok) {
-          const j = await res.json().catch(() => ({}));
-          throw new Error(j.error || `Upload failed (${res.status})`);
-        }
-        const j = (await res.json()) as { url: string; contentType?: string };
-        url = j.url;
-        contentType = j.contentType ?? file.type;
+        const isPdf = file.type === "application/pdf";
+        const [uploaded] = await uploadFiles(
+          isPdf ? "drawingPdf" : "drawingImage",
+          { files: [file] },
+        );
+        if (!uploaded) throw new Error("Upload failed.");
+        url = uploaded.ufsUrl;
+        contentType = file.type;
       }
-      addDrawing({
-        projectId: currentProjectId ?? undefined,
+      if (!currentProjectId) {
+        notify("Pick a current project before adding drawings.", "error");
+        setSubmitting(false);
+        return;
+      }
+      await addDrawing({
+        projectId: currentProjectId,
         building,
         level,
         reference,

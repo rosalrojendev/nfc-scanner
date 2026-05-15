@@ -1,0 +1,222 @@
+// Anchor Tag Pro database schema.
+// Mirrors lib/types.ts. Run `npx prisma migrate dev --name init` after
+// setting DATABASE_URL to create the tables.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  inspector
+  admin
+  client
+}
+
+enum MembershipRole {
+  admin
+  member
+}
+
+enum AnchorStatus {
+  pass
+  due
+  failed
+}
+
+enum InspectionResult {
+  pass
+  review
+  failed
+}
+
+enum DrawingAttachmentKind {
+  plan
+  detail
+  pdf
+}
+
+model User {
+  id                String   @id @default(cuid())
+  email             String   @unique
+  name              String
+  role              Role
+  passwordHash      String
+  avatarUrl         String?
+  reminderSixtyDay  Boolean  @default(true)
+  reminderThirtyDay Boolean  @default(true)
+  reminderSevenDay  Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  memberships         Membership[]
+  inspectionsSubmitted Inspection[] @relation("InspectionSubmittedBy")
+}
+
+model Client {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  projects    Project[]
+  memberships Membership[]
+  inspectors  Inspector[]
+}
+
+model Inspector {
+  id        String   @id @default(cuid())
+  clientId  String
+  name      String
+  avatarUrl String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@unique([clientId, name])
+  @@index([clientId])
+}
+
+model ShareLink {
+  id        String   @id @default(cuid())
+  projectId String
+  label     String
+  createdAt DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+}
+
+model Project {
+  id        String   @id @default(cuid())
+  clientId  String
+  name      String
+  reference String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client      Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  anchors     Anchor[]
+  inspections Inspection[]
+  drawings    Drawing[]
+  shareLinks  ShareLink[]
+
+  @@index([clientId])
+}
+
+model Membership {
+  userId   String
+  clientId String
+  role     MembershipRole @default(member)
+  createdAt DateTime      @default(now())
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@id([userId, clientId])
+  @@index([clientId])
+}
+
+model Anchor {
+  id           String       @id
+  projectId    String
+  label        String
+  building     String
+  location     String
+  drawing      String
+  status       AnchorStatus
+  lastTested   DateTime?
+  nextDue      DateTime?
+  inspector    String?
+  proofResult  String?
+  nfcTag       String?
+  qrCode       String?
+  positionX    Float?
+  positionY    Float?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  inspections Inspection[]
+
+  @@index([projectId])
+}
+
+model Inspection {
+  id              String           @id @default(cuid())
+  projectId       String
+  anchorId        String
+  inspector       String
+  testDate        DateTime
+  nextDueDate     DateTime
+  result          InspectionResult
+  proofLoad       String           @default("")
+  drawingRef      String           @default("")
+  notes           String           @default("")
+  photos          String[]         @default([])
+  signature       String?
+  submittedBy     String?
+  submittedByName String?
+  submittedByRole Role?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  project     Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  anchor      Anchor  @relation(fields: [anchorId], references: [id], onDelete: Cascade)
+  submitter   User?   @relation("InspectionSubmittedBy", fields: [submittedBy], references: [id], onDelete: SetNull)
+
+  @@index([projectId])
+  @@index([anchorId])
+  @@index([testDate])
+}
+
+model Drawing {
+  id        String   @id @default(cuid())
+  projectId String?
+  building  String
+  level     String
+  reference String
+  planUrl   String?
+  custom    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project     Project?            @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  pins        DrawingPin[]
+  attachments DrawingAttachment[]
+
+  @@index([projectId])
+}
+
+model DrawingPin {
+  id        String       @id @default(cuid())
+  drawingId String
+  anchorId  String
+  x         Float
+  y         Float
+  status    AnchorStatus
+
+  drawing Drawing @relation(fields: [drawingId], references: [id], onDelete: Cascade)
+
+  @@unique([drawingId, anchorId])
+  @@index([drawingId])
+}
+
+model DrawingAttachment {
+  id          String                @id @default(cuid())
+  drawingId   String
+  kind        DrawingAttachmentKind
+  label       String
+  url         String
+  contentType String?
+  addedAt     DateTime              @default(now())
+
+  drawing Drawing @relation(fields: [drawingId], references: [id], onDelete: Cascade)
+
+  @@index([drawingId])
+}

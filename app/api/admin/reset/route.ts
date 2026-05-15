@@ -16,6 +16,6 @@ export async function POST() {
       { status: 403 },
     );
   }
-  resetStore();
+  await resetStore();
   return NextResponse.json({ ok: true });
 }

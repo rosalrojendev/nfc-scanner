@@ -20,8 +20,8 @@ export async function GET(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const { id } = await params;
-  const inspection = getInspection(id);
-  if (!inspection || !canAccessProject(session, inspection.projectId)) {
+  const inspection = await getInspection(id);
+  if (!inspection || !(await canAccessProject(session, inspection.projectId))) {
     return NextResponse.json(
       { error: "Inspection not found" },
       { status: 404 },
@@ -45,8 +45,8 @@ export async function PATCH(
     );
   }
   const { id } = await params;
-  const existing = getInspection(id);
-  if (!existing || !canAccessProject(session, existing.projectId)) {
+  const existing = await getInspection(id);
+  if (!existing || !(await canAccessProject(session, existing.projectId))) {
     return NextResponse.json(
       { error: "Inspection not found" },
       { status: 404 },
@@ -65,7 +65,7 @@ export async function PATCH(
       { status: 400 },
     );
   }
-  const updated = saveInspection({
+  const updated = await saveInspection({
     ...existing,
     ...parsed.data,
     updatedAt: new Date().toISOString(),
@@ -88,13 +88,13 @@ export async function DELETE(
     );
   }
   const { id } = await params;
-  const existing = getInspection(id);
-  if (!existing || !canAccessProject(session, existing.projectId)) {
+  const existing = await getInspection(id);
+  if (!existing || !(await canAccessProject(session, existing.projectId))) {
     return NextResponse.json(
       { error: "Inspection not found" },
       { status: 404 },
     );
   }
-  const ok = deleteInspection(id);
+  const ok = await deleteInspection(id);
   return NextResponse.json({ ok });
 }
