@@ -66,7 +66,7 @@ const items: NavItem[] = [
     label: "Drawings",
     icon: MapIcon,
     match: (p) => p.startsWith("/drawings"),
-    showOnMobile: false,
+    showOnMobile: true,
     visibleTo: can.viewDrawings,
   },
   {

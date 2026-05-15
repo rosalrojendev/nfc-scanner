@@ -54,6 +54,13 @@ export function encodePayload(payload: NfcTagPayload): {
   return { json, bytes, withinLimit: bytes <= NFC_MAX_BYTES };
 }
 
+export function buildTagUrl(assetId: string, origin?: string): string {
+  const base =
+    origin ??
+    (typeof window !== "undefined" ? window.location.origin : "");
+  return `${base}/anchors/${encodeURIComponent(assetId)}`;
+}
+
 export function decodePayload(raw: string): NfcTagPayload | null {
   if (!raw) return null;
   try {

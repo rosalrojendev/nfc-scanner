@@ -4,22 +4,27 @@ import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { Radio, X, Check, Smartphone } from "lucide-react";
 import {
+  buildTagUrl,
   encodePayload,
   NFC_MAX_BYTES,
   NFC_MIME_TYPE,
   type NfcTagPayload,
 } from "@/lib/nfc-payload";
 
+type NfcWriteMode = "both" | "url" | "mime";
+
 interface NfcWriterProps {
   payload: NfcTagPayload;
   onWritten?: () => void;
   buttonLabel?: string;
+  mode?: NfcWriteMode;
 }
 
 export function NfcWriter({
   payload,
   onWritten,
   buttonLabel = "Write to NFC tag",
+  mode = "both",
 }: NfcWriterProps) {
   const supported =
     typeof window !== "undefined" && "NDEFReader" in window;
@@ -33,6 +38,19 @@ export function NfcWriter({
   }, []);
 
   const encoded = encodePayload(payload);
+  const tagUrl = React.useMemo(
+    () => buildTagUrl(payload.assetId),
+    [payload.assetId],
+  );
+  const urlBytes = React.useMemo(
+    () => new TextEncoder().encode(tagUrl).byteLength,
+    [tagUrl],
+  );
+  const writeUrl = mode === "url" || mode === "both";
+  const writeMime = mode === "mime" || mode === "both";
+  const totalBytes =
+    (writeMime ? encoded.bytes : 0) + (writeUrl ? urlBytes : 0);
+  const withinLimit = totalBytes <= NFC_MAX_BYTES;
 
   async function write() {
     if (!supported) {
@@ -41,9 +59,9 @@ export function NfcWriter({
       );
       return;
     }
-    if (!encoded.withinLimit) {
+    if (!withinLimit) {
       setError(
-        `Payload is ${encoded.bytes} bytes, exceeds the ${NFC_MAX_BYTES} byte limit.`,
+        `Payload is ${totalBytes} bytes, exceeds the ${NFC_MAX_BYTES} byte limit.`,
       );
       return;
     }
@@ -64,16 +82,23 @@ export function NfcWriter({
         }
       ).NDEFReader;
       const writer = new Ctor();
+      const records: {
+        recordType: string;
+        mediaType?: string;
+        data: string;
+      }[] = [];
+      if (writeUrl) {
+        records.push({ recordType: "url", data: tagUrl });
+      }
+      if (writeMime) {
+        records.push({
+          recordType: "mime",
+          mediaType: NFC_MIME_TYPE,
+          data: encoded.json,
+        });
+      }
       await writer.write(
-        {
-          records: [
-            {
-              recordType: "mime",
-              mediaType: NFC_MIME_TYPE,
-              data: encoded.json,
-            },
-          ],
-        },
+        { records },
         { signal: ctrl.signal, overwrite: true },
       );
       setSuccess(true);
@@ -108,7 +133,12 @@ export function NfcWriter({
           </Button>
         )}
         <span className="text-xs text-[var(--color-text-muted)]">
-          Payload: {encoded.bytes} B / {NFC_MAX_BYTES.toLocaleString()} B max
+          {writeUrl && writeMime
+            ? `URL ${urlBytes} B + MIME ${encoded.bytes} B`
+            : writeUrl
+              ? `URL ${urlBytes} B`
+              : `MIME ${encoded.bytes} B`}
+          {" "}/ {NFC_MAX_BYTES.toLocaleString()} B max
         </span>
       </div>
       {!supported ? (

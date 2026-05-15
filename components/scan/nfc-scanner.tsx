@@ -3,7 +3,11 @@
 import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { Radio, X, Apple } from "lucide-react";
-import { decodePayload, type NfcTagPayload } from "@/lib/nfc-payload";
+import {
+  decodePayload,
+  NFC_MIME_TYPE,
+  type NfcTagPayload,
+} from "@/lib/nfc-payload";
 
 interface NfcScannerProps {
   onResult: (
@@ -82,35 +86,47 @@ export function NfcScanner({ onResult }: NfcScannerProps) {
 
       reader.addEventListener("reading", (event: Event) => {
         const e = event as NDEFReadingEventLite;
-        let payload = "";
         const decoder = new TextDecoder();
+        let mimeText: string | null = null;
+        let urlText: string | null = null;
+        let anyText: string | null = null;
         for (const r of e.message.records) {
-          if (r.data) {
-            try {
-              const view =
-                r.data instanceof ArrayBuffer
-                  ? new DataView(r.data)
-                  : (r.data as DataView);
-              const text = decoder.decode(view);
-              if (text) {
-                payload = text;
-                break;
-              }
-            } catch {
-              // ignore
+          if (!r.data) continue;
+          try {
+            const view =
+              r.data instanceof ArrayBuffer
+                ? new DataView(r.data)
+                : (r.data as DataView);
+            const text = decoder.decode(view);
+            if (!text) continue;
+            if (r.recordType === "mime" && r.mediaType === NFC_MIME_TYPE) {
+              mimeText = text;
+            } else if (r.recordType === "url") {
+              urlText = text;
             }
+            if (!anyText) anyText = text;
+          } catch {
+            // ignore
           }
         }
-        if (!payload && e.serialNumber) payload = e.serialNumber;
-        if (payload) {
-          ctrl.abort();
-          setScanning(false);
-          const decoded = decodePayload(payload);
-          onResult(decoded ? decoded.assetId : payload, {
-            decoded,
-            serial: e.serialNumber || null,
-          });
+
+        if (e.message.records.length === 0) {
+          setError(
+            "This tag is blank. Open an anchor and write to it from the detail page.",
+          );
+          return;
         }
+
+        const payload = mimeText ?? urlText ?? anyText ?? e.serialNumber ?? "";
+        if (!payload) return;
+
+        ctrl.abort();
+        setScanning(false);
+        const decoded = decodePayload(payload);
+        onResult(decoded ? decoded.assetId : payload, {
+          decoded,
+          serial: e.serialNumber || null,
+        });
       });
     } catch (e) {
       const message =
