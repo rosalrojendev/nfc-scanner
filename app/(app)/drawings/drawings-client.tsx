@@ -18,6 +18,7 @@ import type {
   AnchorStatus,
   Drawing,
   DrawingAttachment,
+  DrawingPin,
 } from "@/lib/types";
 import {
   Plus,
@@ -28,7 +29,11 @@ import {
   Trash2,
   Loader2,
   Paperclip,
+  X,
 } from "lucide-react";
+
+const PIN_REF_W = 760;
+const PIN_REF_H = 420;
 import { useSession } from "@/components/shell/session-provider";
 import { can } from "@/lib/permissions";
 import { UploadDrawingDialog } from "@/components/drawings/upload-drawing-dialog";
@@ -232,7 +237,16 @@ function DrawingCard({
       </div>
 
       {planAttachment ? (
-        <UploadedPlan attachment={planAttachment} />
+        isPdfAttachment(planAttachment) ? (
+          <UploadedPlan attachment={planAttachment} />
+        ) : (
+          <UploadedPlanWithPins
+            drawing={d}
+            attachment={planAttachment}
+            onOpenAnchor={onOpenAnchor}
+            onUnpin={canUpload ? onUnpin : undefined}
+          />
+        )
       ) : (
         <DrawingSvg
           drawing={d}
@@ -301,6 +315,107 @@ function DrawingCard({
         </div>
       ) : null}
     </Card>
+  );
+}
+
+function isPdfAttachment(attachment: DrawingAttachment): boolean {
+  return (
+    attachment.contentType?.includes("pdf") === true ||
+    attachment.url.toLowerCase().endsWith(".pdf")
+  );
+}
+
+function UploadedPlanWithPins({
+  drawing,
+  attachment,
+  onOpenAnchor,
+  onUnpin,
+}: {
+  drawing: Drawing;
+  attachment: DrawingAttachment;
+  onOpenAnchor: (id: string) => void;
+  onUnpin?: (anchorId: string) => void;
+}) {
+  return (
+    <div className="relative rounded-2xl overflow-hidden border border-[var(--color-border)] bg-[var(--color-surface-2)]">
+      <Link
+        href={attachment.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="block group"
+        aria-label="Open plan in new tab"
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={attachment.url}
+          alt="Uploaded plan"
+          className="w-full h-auto block group-hover:opacity-95 transition"
+          draggable={false}
+        />
+      </Link>
+      {drawing.anchors.map((pin) => (
+        <PinMarker
+          key={pin.id}
+          pin={pin}
+          onOpen={() => onOpenAnchor(pin.id)}
+          onUnpin={onUnpin ? () => onUnpin(pin.id) : undefined}
+        />
+      ))}
+    </div>
+  );
+}
+
+function PinMarker({
+  pin,
+  onOpen,
+  onUnpin,
+}: {
+  pin: DrawingPin;
+  onOpen: () => void;
+  onUnpin?: () => void;
+}) {
+  return (
+    <div
+      className="absolute -translate-x-1/2 -translate-y-1/2"
+      style={{
+        left: `${(pin.x / PIN_REF_W) * 100}%`,
+        top: `${(pin.y / PIN_REF_H) * 100}%`,
+      }}
+    >
+      <button
+        type="button"
+        onClick={onOpen}
+        aria-label={`Open anchor ${pin.id}`}
+        className="relative block"
+      >
+        <span
+          aria-hidden
+          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-9 h-9 rounded-full opacity-40"
+          style={{ border: `3px solid ${statusColor[pin.status]}` }}
+        />
+        <span
+          className="block w-5 h-5 rounded-full"
+          style={{ background: statusColor[pin.status] }}
+        />
+        <span className="absolute left-full top-1/2 -translate-y-1/2 ml-2 text-xs font-semibold whitespace-nowrap rounded-md px-1.5 py-0.5 bg-[var(--color-surface)]/85 backdrop-blur-sm border border-[var(--color-border)]">
+          {pin.id}
+        </span>
+      </button>
+      {onUnpin ? (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            if (confirm(`Unpin ${pin.id} from this drawing?`)) onUnpin();
+          }}
+          aria-label={`Unpin ${pin.id}`}
+          className="absolute -top-2 -right-2 w-5 h-5 rounded-full grid place-items-center bg-[var(--color-surface)] border"
+          style={{ borderColor: "var(--color-error)" }}
+        >
+          <X size={10} style={{ color: "var(--color-error)" }} />
+        </button>
+      ) : null}
+    </div>
   );
 }
 
