@@ -8,6 +8,7 @@ import { Select, Label, Field } from "@/components/ui/input";
 import { SearchField } from "@/components/ui/search-field";
 import { Segmented } from "@/components/ui/segmented";
 import { useAnchors } from "@/lib/store";
+import { useProjectContext } from "@/components/shell/project-provider";
 import { formatDate, daysUntil } from "@/lib/utils";
 import type { AnchorStatus } from "@/lib/types";
 import {
@@ -48,7 +49,15 @@ function StatusPill({ status }: { status: AnchorStatus }) {
 }
 
 export function AnchorsClient() {
-  const anchors = useAnchors();
+  const allAnchors = useAnchors();
+  const { currentProjectId } = useProjectContext();
+  const anchors = React.useMemo(
+    () =>
+      currentProjectId
+        ? allAnchors.filter((a) => a.projectId === currentProjectId)
+        : allAnchors,
+    [allAnchors, currentProjectId],
+  );
   const [query, setQuery] = React.useState("");
   const [filter, setFilter] = React.useState<Filter>("all");
   const [building, setBuilding] = React.useState<string>("__all");

@@ -74,6 +74,8 @@ function readState(): Drawing[] {
       ) {
         out.push({
           id: item.id,
+          projectId:
+            typeof item.projectId === "string" ? item.projectId : undefined,
           building: item.building,
           level: item.level,
           reference: item.reference,
@@ -147,6 +149,7 @@ export function useDrawings(): Drawing[] {
 }
 
 export function addDrawing(input: {
+  projectId?: string;
   building: string;
   level: string;
   reference: string;
@@ -155,6 +158,7 @@ export function addDrawing(input: {
 }): Drawing {
   const drawing: Drawing = {
     id: generateToken("dw"),
+    projectId: input.projectId,
     building: input.building.trim(),
     level: input.level.trim(),
     reference: input.reference.trim(),

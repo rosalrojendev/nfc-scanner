@@ -1,8 +1,55 @@
-import type { Anchor, Drawing, Inspection, Report } from "./types";
+import type {
+  Anchor,
+  Client,
+  Drawing,
+  Inspection,
+  Membership,
+  Project,
+  Report,
+} from "./types";
+
+export const SEED_CLIENTS: Client[] = [
+  { id: "client-kra", name: "Kamloops Rope Access" },
+  { id: "client-hpg", name: "Heights Property Group" },
+];
+
+export const SEED_PROJECTS: Project[] = [
+  {
+    id: "proj-kot",
+    clientId: "client-kra",
+    name: "Kamloops Office Tower",
+    reference: "PROJ-2024-KOT",
+  },
+  {
+    id: "proj-cp",
+    clientId: "client-kra",
+    name: "Civic Plaza",
+    reference: "PROJ-2024-CP",
+  },
+  {
+    id: "proj-nra",
+    clientId: "client-hpg",
+    name: "North Ridge Apartments",
+    reference: "PROJ-2024-NRA",
+  },
+  {
+    id: "proj-rc",
+    clientId: "client-hpg",
+    name: "Riverside Complex",
+    reference: "PROJ-2024-RC",
+  },
+];
+
+export const SEED_MEMBERSHIPS: Membership[] = [
+  { userId: "u-inspector", clientId: "client-kra", role: "admin" },
+  { userId: "u-inspector", clientId: "client-hpg", role: "member" },
+  { userId: "u-client", clientId: "client-kra", role: "member" },
+];
 
 export const SEED_ANCHORS: Anchor[] = [
   {
     id: "RA-03",
+    projectId: "proj-kot",
     label: "RA-03 · North parapet",
     building: "Kamloops Office Tower",
     location: "Roof level B · NFC-RA-03-BC",
@@ -18,6 +65,7 @@ export const SEED_ANCHORS: Anchor[] = [
   },
   {
     id: "RA-17",
+    projectId: "proj-nra",
     label: "RA-17 · East ladder line",
     building: "North Ridge Apartments",
     location: "East access · QR + NFC",
@@ -33,6 +81,7 @@ export const SEED_ANCHORS: Anchor[] = [
   },
   {
     id: "RA-22",
+    projectId: "proj-cp",
     label: "RA-22 · HVAC curb",
     building: "Civic Plaza",
     location: "Roof zone C · NFC tag",
@@ -48,6 +97,7 @@ export const SEED_ANCHORS: Anchor[] = [
   },
   {
     id: "RA-08",
+    projectId: "proj-kot",
     label: "RA-08 · West parapet",
     building: "Kamloops Office Tower",
     location: "Roof level B · West edge",
@@ -63,6 +113,7 @@ export const SEED_ANCHORS: Anchor[] = [
   },
   {
     id: "RA-11",
+    projectId: "proj-nra",
     label: "RA-11 · South ladder",
     building: "North Ridge Apartments",
     location: "South stair head",
@@ -81,6 +132,7 @@ export const SEED_ANCHORS: Anchor[] = [
 export const SEED_INSPECTIONS: Inspection[] = [
   {
     id: "ins-seed-1",
+    projectId: "proj-kot",
     anchorId: "RA-03",
     inspector: "Justin Kamata",
     testDate: "2026-01-12",
@@ -96,6 +148,7 @@ export const SEED_INSPECTIONS: Inspection[] = [
   },
   {
     id: "ins-seed-2",
+    projectId: "proj-kot",
     anchorId: "RA-03",
     inspector: "A. Singh",
     testDate: "2025-01-10",
@@ -110,6 +163,7 @@ export const SEED_INSPECTIONS: Inspection[] = [
   },
   {
     id: "ins-seed-3",
+    projectId: "proj-kot",
     anchorId: "RA-08",
     inspector: "M. Reed",
     testDate: "2026-02-19",
@@ -128,6 +182,7 @@ export const SEED_INSPECTIONS: Inspection[] = [
 export const SEED_DRAWINGS: Drawing[] = [
   {
     id: "B-1",
+    projectId: "proj-kot",
     building: "Kamloops Office Tower",
     level: "Roof level B",
     reference: "B-1",
@@ -140,6 +195,7 @@ export const SEED_DRAWINGS: Drawing[] = [
   },
   {
     id: "R-2",
+    projectId: "proj-nra",
     building: "North Ridge Apartments",
     level: "East roof",
     reference: "R-2",

@@ -13,6 +13,7 @@ import {
   useInspections,
   deleteInspectionById,
 } from "@/lib/store";
+import { useProjectContext } from "@/components/shell/project-provider";
 import { formatDate } from "@/lib/utils";
 import { useToast } from "@/components/ui/toast";
 import { useSession } from "@/components/shell/session-provider";
@@ -59,8 +60,16 @@ function ResultPill({ result }: { result: InspectionResult }) {
 }
 
 export function InspectionsClient() {
-  const inspections = useInspections();
+  const allInspections = useInspections();
   const anchors = useAnchors();
+  const { currentProjectId } = useProjectContext();
+  const inspections = React.useMemo(
+    () =>
+      currentProjectId
+        ? allInspections.filter((i) => i.projectId === currentProjectId)
+        : allInspections,
+    [allInspections, currentProjectId],
+  );
   const [query, setQuery] = React.useState("");
   const [result, setResult] = React.useState<ResultFilter>("all");
   const [inspectorFilter, setInspectorFilter] = React.useState<string>("__all");

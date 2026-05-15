@@ -8,6 +8,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/toast";
 import { SEED_REPORTS } from "@/lib/seed";
 import { useAnchors, useInspections } from "@/lib/store";
+import { useProjectContext } from "@/components/shell/project-provider";
 import { formatDate } from "@/lib/utils";
 import { FileText, Mail, Download, Eye } from "lucide-react";
 import { useSession } from "@/components/shell/session-provider";
@@ -15,8 +16,23 @@ import { can } from "@/lib/permissions";
 
 export function ReportsClient() {
   const { notify } = useToast();
-  const anchors = useAnchors();
-  const inspections = useInspections();
+  const allAnchors = useAnchors();
+  const allInspections = useInspections();
+  const { currentProjectId } = useProjectContext();
+  const anchors = React.useMemo(
+    () =>
+      currentProjectId
+        ? allAnchors.filter((a) => a.projectId === currentProjectId)
+        : allAnchors,
+    [allAnchors, currentProjectId],
+  );
+  const inspections = React.useMemo(
+    () =>
+      currentProjectId
+        ? allInspections.filter((i) => i.projectId === currentProjectId)
+        : allInspections,
+    [allInspections, currentProjectId],
+  );
   const session = useSession();
   const canEmail = can.emailReports(session.role);
   const canExport = can.exportReports(session.role);

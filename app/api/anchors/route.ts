@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
-import { listAnchors } from "@/lib/server-store";
+import { getAccessibleProjectIds, listAnchors } from "@/lib/server-store";
 
 export const runtime = "nodejs";
 
@@ -9,5 +9,6 @@ export async function GET() {
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  return NextResponse.json({ anchors: listAnchors() });
+  const projectIds = getAccessibleProjectIds(session);
+  return NextResponse.json({ anchors: listAnchors({ projectIds }) });
 }

@@ -7,6 +7,7 @@ import { Eyebrow } from "@/components/ui/card";
 import { Field, FieldError, Input, Label } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
 import { addDrawing } from "@/lib/drawings-store";
+import { useProjectContext } from "@/components/shell/project-provider";
 import { FileUp, Loader2, Image as ImageIcon } from "lucide-react";
 
 interface UploadDrawingDialogProps {
@@ -21,6 +22,7 @@ export function UploadDrawingDialog({
   onClose,
 }: UploadDrawingDialogProps) {
   const { notify } = useToast();
+  const { currentProjectId } = useProjectContext();
   const [building, setBuilding] = React.useState("");
   const [level, setLevel] = React.useState("");
   const [reference, setReference] = React.useState("");
@@ -75,6 +77,7 @@ export function UploadDrawingDialog({
         contentType = j.contentType ?? file.type;
       }
       addDrawing({
+        projectId: currentProjectId ?? undefined,
         building,
         level,
         reference,

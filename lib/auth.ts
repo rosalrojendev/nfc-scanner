@@ -61,6 +61,24 @@ export function findUserByEmail(email: string): SeedUser | null {
   return _userCache.get(email.toLowerCase()) || null;
 }
 
+export function findUserById(id: string): SeedUser | null {
+  ensureSeedUsers();
+  for (const u of _userCache.values()) {
+    if (u.id === id) return u;
+  }
+  return null;
+}
+
+export function listUsers(): Array<Pick<SeedUser, "id" | "email" | "name" | "role">> {
+  ensureSeedUsers();
+  return Array.from(_userCache.values()).map(({ id, email, name, role }) => ({
+    id,
+    email,
+    name,
+    role,
+  }));
+}
+
 export async function verifyPassword(
   password: string,
   hash: string,

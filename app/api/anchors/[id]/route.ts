@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { can } from "@/lib/permissions";
-import { getAnchor, upsertAnchor } from "@/lib/server-store";
+import {
+  canAccessProject,
+  getAnchor,
+  upsertAnchor,
+} from "@/lib/server-store";
 import { anchorPatchSchema } from "@/lib/validation";
 
 export const runtime = "nodejs";
@@ -16,7 +20,7 @@ export async function GET(
   }
   const { id } = await params;
   const anchor = getAnchor(id);
-  if (!anchor) {
+  if (!anchor || !canAccessProject(session, anchor.projectId)) {
     return NextResponse.json({ error: "Anchor not found" }, { status: 404 });
   }
   return NextResponse.json({ anchor });
@@ -38,7 +42,7 @@ export async function PATCH(
   }
   const { id } = await params;
   const anchor = getAnchor(id);
-  if (!anchor) {
+  if (!anchor || !canAccessProject(session, anchor.projectId)) {
     return NextResponse.json({ error: "Anchor not found" }, { status: 404 });
   }
   let body: unknown;

@@ -37,6 +37,7 @@ function nextYearISO() {
 function emptyDraft(anchorId = "", defaultInspector = ""): Inspection {
   return {
     id: "",
+    projectId: "",
     anchorId,
     inspector: defaultInspector,
     testDate: todayISO(),

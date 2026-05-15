@@ -2,8 +2,29 @@ export type Role = "inspector" | "admin" | "client";
 
 export type AnchorStatus = "pass" | "due" | "failed";
 
+export interface Client {
+  id: string;
+  name: string;
+}
+
+export interface Project {
+  id: string;
+  clientId: string;
+  name: string;
+  reference?: string;
+}
+
+export type MembershipRole = "admin" | "member";
+
+export interface Membership {
+  userId: string;
+  clientId: string;
+  role: MembershipRole;
+}
+
 export interface Anchor {
   id: string;
+  projectId: string;
   label: string;
   building: string;
   location: string;
@@ -22,6 +43,7 @@ export type InspectionResult = "pass" | "review" | "failed";
 
 export interface Inspection {
   id: string;
+  projectId: string;
   anchorId: string;
   inspector: string;
   testDate: string;
@@ -59,6 +81,7 @@ export interface DrawingAttachment {
 
 export interface Drawing {
   id: string;
+  projectId?: string;
   building: string;
   level: string;
   reference: string;
