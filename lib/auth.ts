@@ -123,7 +123,11 @@ export async function setSessionCookie(user: SessionUser): Promise<void> {
   store.set(SESSION_COOKIE, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
-    sameSite: "strict",
+    // Lax so the cookie is sent on top-level GET navigations from outside
+    // the site — e.g. tapping an NFC URL from iOS's notification, or
+    // following an email link. Still blocks the cookie on CSRF-risky
+    // cross-site POST/PUT/DELETE requests.
+    sameSite: "lax",
     path: "/",
     maxAge: SESSION_TTL_SECONDS,
   });
@@ -134,7 +138,7 @@ export async function clearSessionCookie(): Promise<void> {
   store.set(SESSION_COOKIE, "", {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
-    sameSite: "strict",
+    sameSite: "lax",
     path: "/",
     maxAge: 0,
   });
