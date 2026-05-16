@@ -1,6 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
+import { withFetch } from "./loading-state";
 
 export interface Building {
   id: string;
@@ -45,11 +46,13 @@ async function bootstrap(): Promise<void> {
 
 export async function refetch(): Promise<void> {
   if (!isClient()) return;
-  const r = await fetch("/api/buildings", { credentials: "include" });
-  if (!r.ok) return;
-  const j = (await r.json()) as { buildings: Building[] };
-  cache = j.buildings;
-  notify();
+  await withFetch(async () => {
+    const r = await fetch("/api/buildings", { credentials: "include" });
+    if (!r.ok) return;
+    const j = (await r.json()) as { buildings: Building[] };
+    cache = j.buildings;
+    notify();
+  });
 }
 
 export function getBuildings(): Building[] {

@@ -75,26 +75,35 @@ export function NfcWriter({
         window as unknown as {
           NDEFReader: new () => {
             write: (
-              message: { records: { recordType: string; mediaType?: string; data: string }[] },
+              message: {
+                records: Array<{
+                  recordType: string;
+                  mediaType?: string;
+                  data: string | ArrayBuffer | Uint8Array;
+                }>;
+              },
               opts?: { signal?: AbortSignal; overwrite?: boolean },
             ) => Promise<void>;
           };
         }
       ).NDEFReader;
       const writer = new Ctor();
-      const records: {
+      const records: Array<{
         recordType: string;
         mediaType?: string;
-        data: string;
-      }[] = [];
+        data: string | ArrayBuffer | Uint8Array;
+      }> = [];
       if (writeUrl) {
+        // URL records accept strings directly.
         records.push({ recordType: "url", data: tagUrl });
       }
       if (writeMime) {
+        // MIME records require ArrayBuffer / Uint8Array — strings are
+        // rejected by Web NFC for non-textual record types.
         records.push({
           recordType: "mime",
           mediaType: NFC_MIME_TYPE,
-          data: encoded.json,
+          data: new TextEncoder().encode(encoded.json),
         });
       }
       await writer.write(

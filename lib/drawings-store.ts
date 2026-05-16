@@ -6,6 +6,7 @@ import type {
   Drawing,
   DrawingAttachmentKind,
 } from "./types";
+import { withFetch } from "./loading-state";
 
 // Module-scoped cache, populated on first subscribe.
 let cache: Drawing[] = [];
@@ -46,11 +47,13 @@ async function bootstrap(): Promise<void> {
 
 export async function refetch(): Promise<void> {
   if (!isClient()) return;
-  const r = await fetch("/api/drawings", { credentials: "include" });
-  if (!r.ok) return;
-  const j = (await r.json()) as { drawings: Drawing[] };
-  cache = j.drawings;
-  notify();
+  await withFetch(async () => {
+    const r = await fetch("/api/drawings", { credentials: "include" });
+    if (!r.ok) return;
+    const j = (await r.json()) as { drawings: Drawing[] };
+    cache = j.drawings;
+    notify();
+  });
 }
 
 export function getDrawings(): Drawing[] {

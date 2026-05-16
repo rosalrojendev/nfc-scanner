@@ -129,13 +129,32 @@ export function NfcScanner({ onResult }: NfcScannerProps) {
         });
       });
     } catch (e) {
-      const message =
-        e instanceof Error
-          ? e.message
-          : "NFC reading failed. Tap your phone closer to the tag.";
-      setError(message);
+      setError(translateNfcError(e));
       setScanning(false);
     }
+  }
+
+  function translateNfcError(e: unknown): string {
+    const raw = e instanceof Error ? e.message : String(e);
+    const name = e instanceof Error ? e.name : "";
+    const lower = raw.toLowerCase();
+    if (
+      name === "NotAllowedError" ||
+      lower.includes("permission") ||
+      lower.includes("not allowed")
+    ) {
+      return "NFC permission was denied or revoked. Tap the lock icon in Chrome's address bar → Permissions → set NFC to Allow, then try again.";
+    }
+    if (name === "NotSupportedError" || lower.includes("not supported")) {
+      return "Web NFC isn't supported on this device or browser. Use Chrome on Android over HTTPS.";
+    }
+    if (lower.includes("aborted")) {
+      return "Scan cancelled.";
+    }
+    if (name === "NotReadableError") {
+      return "Could not read this NFC tag. Hold the phone closer or try a different position.";
+    }
+    return raw || "NFC reading failed. Tap your phone closer to the tag.";
   }
 
   function stop() {

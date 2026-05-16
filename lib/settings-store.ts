@@ -1,6 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
+import { withFetch } from "./loading-state";
 
 export interface Inspector {
   id: string;
@@ -104,17 +105,19 @@ interface RawMe {
 
 export async function refetchAll(): Promise<void> {
   if (!isClient()) return;
-  const [insp, links, me] = await Promise.all([
-    fetch("/api/inspectors", { credentials: "include" }).then((r) =>
-      r.ok ? r.json() : { inspectors: [] },
-    ),
-    fetch("/api/share-links", { credentials: "include" }).then((r) =>
-      r.ok ? r.json() : { shareLinks: [] },
-    ),
-    fetch("/api/me", { credentials: "include" }).then((r) =>
-      r.ok ? r.json() : null,
-    ),
-  ]);
+  const [insp, links, me] = await withFetch(() =>
+    Promise.all([
+      fetch("/api/inspectors", { credentials: "include" }).then((r) =>
+        r.ok ? r.json() : { inspectors: [] },
+      ),
+      fetch("/api/share-links", { credentials: "include" }).then((r) =>
+        r.ok ? r.json() : { shareLinks: [] },
+      ),
+      fetch("/api/me", { credentials: "include" }).then((r) =>
+        r.ok ? r.json() : null,
+      ),
+    ]),
+  );
   const inspectors = ((insp.inspectors ?? []) as RawInspector[]).map((i) => ({
     id: i.id,
     clientId: i.clientId,
