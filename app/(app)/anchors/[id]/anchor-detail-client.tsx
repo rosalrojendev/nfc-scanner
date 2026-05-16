@@ -9,6 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Field, Input, Label } from "@/components/ui/input";
 import { useAnchors, useInspections, patchAnchor } from "@/lib/store";
+import { useIsFetching } from "@/lib/loading-state";
+import { ClimbingLoader } from "@/components/shell/climbing-loader";
 import { formatDate, daysUntil } from "@/lib/utils";
 import { useToast } from "@/components/ui/toast";
 import { useSession } from "@/components/shell/session-provider";
@@ -36,7 +38,12 @@ export function AnchorDetailClient({ id }: { id: string }) {
   const { notify } = useToast();
   const anchors = useAnchors();
   const inspections = useInspections();
+  const isFetching = useIsFetching();
   const anchor = anchors.find((a) => a.id === id);
+  // The server already verified this anchor exists and is accessible
+  // (see page.tsx). If our local cache is still empty, we're just
+  // mid-bootstrap — show the loader instead of flashing "not found".
+  const stillLoading = !anchor && (anchors.length === 0 || isFetching);
   const history = React.useMemo(
     () =>
       inspections
@@ -54,6 +61,14 @@ export function AnchorDetailClient({ id }: { id: string }) {
   const canWriteTag = can.writeNfc(session.role);
   const [editOpen, setEditOpen] = React.useState(false);
   const [draft, setDraft] = React.useState<Partial<Anchor>>({});
+
+  if (stillLoading) {
+    return (
+      <Card>
+        <ClimbingLoader label={`Loading anchor ${id}`} height={180} />
+      </Card>
+    );
+  }
 
   if (!anchor) {
     return (

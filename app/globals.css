@@ -91,6 +91,10 @@ html {
 body {
   margin: 0;
   min-height: 100vh;
+  /* Prevent iOS Safari from pinch-zooming the page out when a wide
+     element accidentally overflows. The topbar and other rows can be
+     dense on narrow phones — clip silently rather than rescale. */
+  overflow-x: hidden;
   background: var(--color-bg);
   color: var(--color-text);
   font-family:
