@@ -4,7 +4,7 @@ import * as React from "react";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Eyebrow } from "@/components/ui/card";
-import { Field, Input, Label } from "@/components/ui/input";
+import { Field, Label, Select } from "@/components/ui/input";
 import { Avatar } from "@/components/ui/avatar";
 import { useToast } from "@/components/ui/toast";
 import {
@@ -16,11 +16,17 @@ import {
 } from "@/lib/settings-store";
 import { uploadAvatar } from "@/lib/avatar-upload";
 import { useProjectContext } from "@/components/shell/project-provider";
-import { Plus, Trash2, Camera, Loader2, X } from "lucide-react";
+import { Plus, Trash2, Camera, Loader2, X, UserPlus } from "lucide-react";
 
 interface ManageUsersDialogProps {
   open: boolean;
   onClose: () => void;
+}
+
+interface AvailableUser {
+  id: string;
+  name: string;
+  email: string;
 }
 
 export function ManageUsersDialog({ open, onClose }: ManageUsersDialogProps) {
@@ -34,36 +40,65 @@ export function ManageUsersDialog({ open, onClose }: ManageUsersDialogProps) {
   const rosterForClient = currentClientId
     ? settings.inspectors.filter((i) => i.clientId === currentClientId)
     : settings.inspectors;
-  const [draft, setDraft] = React.useState("");
-  const [error, setError] = React.useState<string | null>(null);
+  const [available, setAvailable] = React.useState<AvailableUser[]>([]);
+  const [loadingAvailable, setLoadingAvailable] = React.useState(false);
+  const [pickedUserId, setPickedUserId] = React.useState("");
   const [busyId, setBusyId] = React.useState<string | null>(null);
 
+  const reloadAvailable = React.useCallback(async () => {
+    if (!open || !currentClientId) return;
+    setLoadingAvailable(true);
+    try {
+      const r = await fetch(
+        `/api/inspectors/available?clientId=${encodeURIComponent(currentClientId)}`,
+        { credentials: "include" },
+      );
+      if (r.ok) {
+        const j = (await r.json()) as { users: AvailableUser[] };
+        setAvailable(j.users);
+      } else {
+        setAvailable([]);
+      }
+    } finally {
+      setLoadingAvailable(false);
+    }
+  }, [open, currentClientId]);
+
+  React.useEffect(() => {
+    void reloadAvailable();
+  }, [reloadAvailable]);
+
+  // Whenever the roster changes (after add/remove), refetch the candidate
+  // list so picker entries appear/disappear correctly.
+  React.useEffect(() => {
+    void reloadAvailable();
+  }, [rosterForClient.length, reloadAvailable]);
+
   async function add() {
-    const name = draft.trim();
-    if (name.length < 2) {
-      setError("Enter a full name (2+ characters).");
-      return;
-    }
     if (!currentClientId) {
-      setError("Pick a current project to know which client to add to.");
+      notify("Pick a current project first.", "error");
       return;
     }
-    if (rosterForClient.some((i) => i.name === name)) {
-      setError("That inspector is already on this client's roster.");
+    if (!pickedUserId) {
+      notify("Pick an inspector account.", "error");
       return;
     }
     try {
-      await addInspector(currentClientId, name);
-      setDraft("");
-      setError(null);
-      notify(`${name} added to the roster.`, "success");
+      await addInspector(currentClientId, pickedUserId);
+      setPickedUserId("");
+      notify("Inspector added to the roster.", "success");
     } catch (e) {
       notify(e instanceof Error ? e.message : "Failed to add.", "error");
     }
   }
 
   async function remove(insp: Inspector) {
-    if (!confirm(`Remove ${insp.name} from the inspector roster?`)) return;
+    if (
+      !confirm(
+        `Remove ${insp.name} from this client's roster? They'll lose access to the projects.`,
+      )
+    )
+      return;
     try {
       await removeInspector(insp.id);
       notify(`${insp.name} removed.`);
@@ -78,7 +113,7 @@ export function ManageUsersDialog({ open, onClose }: ManageUsersDialogProps) {
     try {
       const url = await uploadAvatar(file);
       await updateInspector(insp.id, { avatar: url });
-      notify(`${insp.name}'s avatar updated.`, "success");
+      notify(`${insp.name}'s roster avatar updated.`, "success");
     } catch (e) {
       notify(e instanceof Error ? e.message : "Upload failed.", "error");
     } finally {
@@ -99,8 +134,8 @@ export function ManageUsersDialog({ open, onClose }: ManageUsersDialogProps) {
       <Eyebrow>Authorized inspectors</Eyebrow>
       <h3 className="text-lg font-semibold tracking-tight">Manage roster</h3>
       <p className="text-sm text-[var(--color-text-muted)]">
-        Inspectors here can be selected when logging an inspection. Tap the
-        avatar to upload a photo.
+        Pick from inspector accounts to add them to this client&apos;s roster.
+        Adding gives them access to the projects; removing revokes it.
       </p>
 
       <p className="text-xs text-[var(--color-text-muted)]">
@@ -108,55 +143,64 @@ export function ManageUsersDialog({ open, onClose }: ManageUsersDialogProps) {
         Switch projects in the top-bar to manage another client&apos;s roster.
       </p>
       <div className="grid gap-2 max-h-[44vh] overflow-auto -mx-1 px-1">
-        {rosterForClient.map((insp) => (
-          <InspectorRow
-            key={insp.id}
-            inspector={insp}
-            busy={busyId === insp.id}
-            onUpload={(file) => handleAvatar(insp, file)}
-            onClearAvatar={() => clearAvatar(insp)}
-            onRemove={() => remove(insp)}
-          />
-        ))}
+        {rosterForClient.length === 0 ? (
+          <p className="text-sm text-[var(--color-text-muted)]">
+            No inspectors on this roster yet.
+          </p>
+        ) : (
+          rosterForClient.map((insp) => (
+            <InspectorRow
+              key={insp.id}
+              inspector={insp}
+              busy={busyId === insp.id}
+              onUpload={(file) => handleAvatar(insp, file)}
+              onClearAvatar={() => clearAvatar(insp)}
+              onRemove={() => remove(insp)}
+            />
+          ))
+        )}
       </div>
 
       <div className="grid gap-2 pt-1 border-t border-[var(--color-border)]">
         <Eyebrow>Add inspector</Eyebrow>
-        <Field>
-          <Label htmlFor="add-inspector">Full name</Label>
-          <Input
-            id="add-inspector"
-            placeholder="e.g. T. Quinn"
-            value={draft}
-            onChange={(e) => {
-              setDraft(e.target.value);
-              if (error) setError(null);
-            }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                add();
-              }
-            }}
-          />
-          {error ? (
-            <p
-              role="alert"
-              className="text-xs"
-              style={{ color: "var(--color-error)" }}
-            >
-              {error}
-            </p>
-          ) : null}
-        </Field>
-        <p className="text-xs text-[var(--color-text-muted)]">
-          A photo can be added after the inspector is on the roster.
-        </p>
-        <div className="flex gap-2 justify-end">
+        {loadingAvailable ? (
+          <p className="text-xs text-[var(--color-text-muted)] inline-flex items-center gap-1">
+            <Loader2 size={14} className="animate-spin" /> Loading inspector
+            accounts…
+          </p>
+        ) : available.length === 0 ? (
+          <p className="text-sm text-[var(--color-text-muted)] inline-flex items-center gap-1.5">
+            <UserPlus size={14} /> No inspector accounts available. Ask them
+            to sign up at <code>/signup</code> first.
+          </p>
+        ) : (
+          <Field>
+            <Label htmlFor="add-inspector">Pick an inspector</Label>
+            <div className="flex gap-2">
+              <Select
+                id="add-inspector"
+                value={pickedUserId}
+                onChange={(e) => setPickedUserId(e.target.value)}
+              >
+                <option value="">Choose…</option>
+                {available.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.name} · {u.email}
+                  </option>
+                ))}
+              </Select>
+              <Button
+                variant="primary"
+                onClick={add}
+                disabled={!pickedUserId || !currentClientId}
+              >
+                <Plus size={16} /> Add
+              </Button>
+            </div>
+          </Field>
+        )}
+        <div className="flex justify-end">
           <Button onClick={onClose}>Done</Button>
-          <Button variant="primary" onClick={add}>
-            <Plus size={16} /> Add inspector
-          </Button>
         </div>
       </div>
     </Dialog>
@@ -183,7 +227,7 @@ function InspectorRow({
         type="button"
         onClick={() => fileRef.current?.click()}
         className="relative shrink-0 group"
-        aria-label={`Upload photo for ${inspector.name}`}
+        aria-label={`Upload roster photo for ${inspector.name}`}
         disabled={busy}
       >
         <Avatar name={inspector.name} src={inspector.avatar} size={44} />
@@ -216,14 +260,14 @@ function InspectorRow({
       <div className="flex-1 min-w-0">
         <strong className="block truncate">{inspector.name}</strong>
         <span className="text-xs text-[var(--color-text-muted)]">
-          {inspector.avatar ? "Photo on file" : "No photo"}
+          {inspector.avatar ? "Roster photo on file" : "No roster photo"}
         </span>
       </div>
       {inspector.avatar ? (
         <button
           type="button"
           onClick={onClearAvatar}
-          aria-label={`Clear photo for ${inspector.name}`}
+          aria-label={`Clear roster photo for ${inspector.name}`}
           className="inline-flex w-8 h-8 items-center justify-center rounded-full text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface)]"
         >
           <X size={14} />
@@ -240,4 +284,3 @@ function InspectorRow({
     </div>
   );
 }
-

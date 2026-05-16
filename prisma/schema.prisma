@@ -54,6 +54,7 @@ model User {
 
   memberships         Membership[]
   inspectionsSubmitted Inspection[] @relation("InspectionSubmittedBy")
+  inspectorRoles      Inspector[]
 }
 
 model Client {
@@ -70,15 +71,18 @@ model Client {
 model Inspector {
   id        String   @id @default(cuid())
   clientId  String
+  userId    String
   name      String
   avatarUrl String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([clientId, name])
+  @@unique([clientId, userId])
   @@index([clientId])
+  @@index([userId])
 }
 
 model ShareLink {
@@ -105,8 +109,22 @@ model Project {
   inspections Inspection[]
   drawings    Drawing[]
   shareLinks  ShareLink[]
+  buildings   Building[]
 
   @@index([clientId])
+}
+
+model Building {
+  id        String   @id @default(cuid())
+  projectId String
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, name])
+  @@index([projectId])
 }
 
 model Membership {

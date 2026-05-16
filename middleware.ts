@@ -2,7 +2,13 @@ import { NextResponse, type NextRequest } from "next/server";
 import { jwtVerify } from "jose";
 import { SESSION_COOKIE } from "@/lib/auth-constants";
 
-const PUBLIC_PATHS = ["/login", "/api/auth/login", "/api/auth/demo"];
+const PUBLIC_PATHS = [
+  "/login",
+  "/signup",
+  "/api/auth/login",
+  "/api/auth/demo",
+  "/api/auth/signup",
+];
 
 function getSecret() {
   const raw =

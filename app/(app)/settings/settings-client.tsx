@@ -23,12 +23,15 @@ import {
 } from "@/lib/settings-store";
 import { ManageUsersDialog } from "@/components/settings/manage-users-dialog";
 import { ManageTenantsDialog } from "@/components/settings/manage-tenants-dialog";
+import { ManageBuildingsDialog } from "@/components/settings/manage-buildings-dialog";
+import { EditProfileDialog } from "@/components/settings/edit-profile-dialog";
 import { RemindersDialog } from "@/components/settings/reminders-dialog";
 import { ShareLinkDialog } from "@/components/settings/share-link-dialog";
 import { MyProfilePhoto } from "@/components/settings/my-profile-photo";
 import { Avatar } from "@/components/ui/avatar";
 import { useProjectContext } from "@/components/shell/project-provider";
-import { Building2 } from "lucide-react";
+import { useBuildings } from "@/lib/buildings-store";
+import { Building2, Building, UserCog } from "lucide-react";
 
 export function SettingsClient() {
   const { notify } = useToast();
@@ -42,7 +45,15 @@ export function SettingsClient() {
   const [remindersOpen, setRemindersOpen] = React.useState(false);
   const [shareOpen, setShareOpen] = React.useState(false);
   const [tenantsOpen, setTenantsOpen] = React.useState(false);
-  const { canManageAnyClient, clients, projects } = useProjectContext();
+  const [buildingsOpen, setBuildingsOpen] = React.useState(false);
+  const [profileOpen, setProfileOpen] = React.useState(false);
+  const { canManageAnyClient, clients, projects, currentProject } =
+    useProjectContext();
+  const allBuildings = useBuildings();
+  const buildingsForCurrentProject = currentProject
+    ? allBuildings.filter((b) => b.projectId === currentProject.id)
+    : [];
+  const canEditBuildings = can.editAnchor(role);
 
   async function reset() {
     if (
@@ -190,6 +201,40 @@ export function SettingsClient() {
         </Card>
       ) : null}
 
+      <Card>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <Eyebrow>Account</Eyebrow>
+            <h2 className="text-lg font-semibold tracking-tight mt-1 inline-flex items-center gap-2">
+              <UserCog size={18} /> Edit profile
+            </h2>
+            <p className="text-sm text-[var(--color-text-muted)] mt-1">
+              Update your name, email, or password.
+            </p>
+          </div>
+          <Button onClick={() => setProfileOpen(true)}>Edit</Button>
+        </div>
+      </Card>
+
+      {canEditBuildings && currentProject ? (
+        <Card>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <Eyebrow>Project setup</Eyebrow>
+              <h2 className="text-lg font-semibold tracking-tight mt-1 inline-flex items-center gap-2">
+                <Building size={18} /> Buildings
+              </h2>
+              <p className="text-sm text-[var(--color-text-muted)] mt-1">
+                {buildingsForCurrentProject.length} in{" "}
+                <strong>{currentProject.name}</strong>. Renaming cascades to
+                anchors and drawings.
+              </p>
+            </div>
+            <Button onClick={() => setBuildingsOpen(true)}>Manage</Button>
+          </div>
+        </Card>
+      ) : null}
+
       <MyProfilePhoto />
 
       <Card>
@@ -267,6 +312,16 @@ export function SettingsClient() {
         <ManageTenantsDialog
           open={tenantsOpen}
           onClose={() => setTenantsOpen(false)}
+        />
+      ) : null}
+      <EditProfileDialog
+        open={profileOpen}
+        onClose={() => setProfileOpen(false)}
+      />
+      {canEditBuildings && currentProject ? (
+        <ManageBuildingsDialog
+          open={buildingsOpen}
+          onClose={() => setBuildingsOpen(false)}
         />
       ) : null}
     </>

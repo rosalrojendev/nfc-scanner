@@ -13,8 +13,7 @@ export const runtime = "nodejs";
 
 const createSchema = z.object({
   clientId: z.string().min(1),
-  name: z.string().min(2).max(120),
-  avatarUrl: z.string().url().optional().nullable(),
+  userId: z.string().min(1, "Pick an inspector account."),
 });
 
 async function accessibleClientIds(

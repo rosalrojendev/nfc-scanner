@@ -55,6 +55,36 @@ export function DashboardClient() {
   ).length;
   const reportsReady = 8;
 
+  // Empty state: signed in but not on any project's roster.
+  if (!currentProjectId && session.role !== "admin") {
+    return (
+      <Card className="p-6 sm:p-7 overflow-hidden relative">
+        <div
+          aria-hidden
+          className="absolute inset-0 pointer-events-none opacity-70"
+          style={{
+            background:
+              "radial-gradient(circle at 100% 0%, color-mix(in srgb, var(--color-primary) 14%, transparent), transparent 55%)",
+          }}
+        />
+        <div className="relative grid gap-3 max-w-prose">
+          <Eyebrow>Welcome</Eyebrow>
+          <h1 className="text-xl font-semibold tracking-tight">
+            You haven&apos;t been added to any project yet
+          </h1>
+          <p className="text-sm text-[var(--color-text-muted)]">
+            {session.role === "inspector"
+              ? "Ask the client admin who hired you to add you to their inspector roster. Once they do, the project's anchors and drawings will appear here."
+              : "Your account doesn't have any client memberships. Ask a platform admin to grant you access, or sign up again as a Company / org admin if you wanted to start your own org."}
+          </p>
+          <p className="text-xs text-[var(--color-text-muted)]">
+            Signed in as <strong>{session.name}</strong> · {session.email}
+          </p>
+        </div>
+      </Card>
+    );
+  }
+
   return (
     <>
       <Card className="p-6 sm:p-7 overflow-hidden relative">
