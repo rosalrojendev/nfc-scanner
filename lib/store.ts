@@ -3,6 +3,7 @@
 import { useSyncExternalStore } from "react";
 import type { Anchor, Inspection, InspectionResult } from "./types";
 import { SEED_ANCHORS, SEED_INSPECTIONS } from "./seed";
+import { withFetch } from "./loading-state";
 
 let anchorsCache: Anchor[] = SEED_ANCHORS;
 let inspectionsCache: Inspection[] = SEED_INSPECTIONS;
@@ -31,7 +32,7 @@ function subscribe(listener: () => void): () => void {
 
 async function bootstrap(): Promise<void> {
   if (!isClient() || bootstrapped) return;
-  bootstrapping ??= (async () => {
+  bootstrapping ??= withFetch(async () => {
     try {
       const [a, i] = await Promise.all([
         fetch("/api/anchors", { credentials: "include" }),
@@ -50,26 +51,30 @@ async function bootstrap(): Promise<void> {
     } finally {
       bootstrapping = null;
     }
-  })();
+  });
   await bootstrapping;
 }
 
 export async function refetchAnchors(): Promise<void> {
   if (!isClient()) return;
-  const r = await fetch("/api/anchors", { credentials: "include" });
-  if (!r.ok) return;
-  const j = (await r.json()) as { anchors: Anchor[] };
-  anchorsCache = j.anchors;
-  notify();
+  await withFetch(async () => {
+    const r = await fetch("/api/anchors", { credentials: "include" });
+    if (!r.ok) return;
+    const j = (await r.json()) as { anchors: Anchor[] };
+    anchorsCache = j.anchors;
+    notify();
+  });
 }
 
 export async function refetchInspections(): Promise<void> {
   if (!isClient()) return;
-  const r = await fetch("/api/inspections", { credentials: "include" });
-  if (!r.ok) return;
-  const j = (await r.json()) as { inspections: Inspection[] };
-  inspectionsCache = j.inspections;
-  notify();
+  await withFetch(async () => {
+    const r = await fetch("/api/inspections", { credentials: "include" });
+    if (!r.ok) return;
+    const j = (await r.json()) as { inspections: Inspection[] };
+    inspectionsCache = j.inspections;
+    notify();
+  });
 }
 
 export async function refetchAll(): Promise<void> {

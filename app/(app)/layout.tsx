@@ -5,6 +5,7 @@ import { TopBar } from "@/components/shell/topbar";
 import { SideNav, BottomNav } from "@/components/shell/nav";
 import { SessionProvider } from "@/components/shell/session-provider";
 import { ProjectProvider } from "@/components/shell/project-provider";
+import { GlobalLoader } from "@/components/shell/global-loader";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +28,7 @@ export default async function AppLayout({
         initialCurrentProjectId={currentProjectId}
         canManageAnyClient={canManageAnyClient}
       >
+        <GlobalLoader />
         <div className="min-h-screen grid lg:grid-cols-[280px_1fr] grid-rows-[auto_1fr]">
           <div className="lg:col-span-2">
             <TopBar user={session} />

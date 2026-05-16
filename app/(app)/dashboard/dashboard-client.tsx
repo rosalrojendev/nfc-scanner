@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { AnimatedCounter } from "@/components/animated-counter";
 import { useAnchors, useInspections } from "@/lib/store";
 import { useProjectContext } from "@/components/shell/project-provider";
+import { useIsFetching } from "@/lib/loading-state";
+import { ClimbingLoader } from "@/components/shell/climbing-loader";
 import { daysUntil } from "@/lib/utils";
 import { ScanLine, FileText, ClipboardCheck, Map as MapIcon } from "lucide-react";
 import { useSession } from "@/components/shell/session-provider";
@@ -18,6 +20,8 @@ export function DashboardClient() {
   const allAnchors = useAnchors();
   const allInspections = useInspections();
   const { currentProjectId } = useProjectContext();
+  const isFetching = useIsFetching();
+  const initialBoot = isFetching && allAnchors.length === 0;
   const anchors = React.useMemo(
     () =>
       currentProjectId
@@ -54,6 +58,15 @@ export function DashboardClient() {
     (a) => a.nextDue && daysUntil(a.nextDue) < 0,
   ).length;
   const reportsReady = 8;
+
+  // First-load state: still fetching and nothing's arrived yet.
+  if (initialBoot) {
+    return (
+      <Card className="p-6 sm:p-7">
+        <ClimbingLoader label="Pulling your dashboard data" height={180} />
+      </Card>
+    );
+  }
 
   // Empty state: signed in but not on any project's roster.
   if (!currentProjectId && session.role !== "admin") {
