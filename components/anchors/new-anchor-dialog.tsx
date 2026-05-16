@@ -9,8 +9,13 @@ import { Field, FieldError, Input, Label } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
 import { useProjectContext } from "@/components/shell/project-provider";
 import { createAnchor, useAnchors } from "@/lib/store";
+import {
+  createBuilding as createBuildingApi,
+  useBuildings,
+} from "@/lib/buildings-store";
 import { anchorCreateSchema } from "@/lib/validation";
 import { Plus, Loader2 } from "lucide-react";
+import { Select } from "@/components/ui/input";
 
 interface NewAnchorDialogProps {
   open: boolean;
@@ -42,11 +47,20 @@ export function NewAnchorDialog({ open, onClose }: NewAnchorDialogProps) {
     return suggestNextId(idsInProject);
   }, [allAnchors, currentProject]);
 
+  const allBuildings = useBuildings();
+  const projectBuildings = React.useMemo(
+    () =>
+      currentProject
+        ? allBuildings.filter((b) => b.projectId === currentProject.id)
+        : [],
+    [allBuildings, currentProject],
+  );
+
   const [id, setId] = React.useState(suggestedId);
   const [label, setLabel] = React.useState("");
-  const [building, setBuilding] = React.useState(
-    currentProject?.name ?? "",
-  );
+  const [building, setBuilding] = React.useState("");
+  const [newBuildingName, setNewBuildingName] = React.useState("");
+  const [creatingBuilding, setCreatingBuilding] = React.useState(false);
   const [location, setLocation] = React.useState("");
   const [drawing, setDrawing] = React.useState("");
   const [errors, setErrors] = React.useState<Record<string, string>>({});
@@ -57,12 +71,32 @@ export function NewAnchorDialog({ open, onClose }: NewAnchorDialogProps) {
     if (open) {
       setId(suggestedId);
       setLabel("");
-      setBuilding(currentProject?.name ?? "");
+      setBuilding(projectBuildings[0]?.name ?? "");
+      setNewBuildingName("");
       setLocation("");
       setDrawing("");
       setErrors({});
     }
-  }, [open, suggestedId, currentProject?.name]);
+  }, [open, suggestedId, currentProject?.name, projectBuildings]);
+
+  async function handleCreateBuilding() {
+    const name = newBuildingName.trim();
+    if (!currentProject || name.length < 2) return;
+    setCreatingBuilding(true);
+    try {
+      const b = await createBuildingApi({
+        projectId: currentProject.id,
+        name,
+      });
+      setBuilding(b.name);
+      setNewBuildingName("");
+      notify(`Building "${b.name}" added.`, "success");
+    } catch (e) {
+      notify(e instanceof Error ? e.message : "Failed.", "error");
+    } finally {
+      setCreatingBuilding(false);
+    }
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -153,13 +187,55 @@ export function NewAnchorDialog({ open, onClose }: NewAnchorDialogProps) {
         </Field>
         <Field>
           <Label htmlFor="na-building">Building</Label>
-          <Input
-            id="na-building"
-            value={building}
-            onChange={(e) => setBuilding(e.target.value)}
-            placeholder="e.g. Kamloops Office Tower"
-          />
+          {projectBuildings.length > 0 ? (
+            <Select
+              id="na-building"
+              value={building}
+              onChange={(e) => setBuilding(e.target.value)}
+            >
+              <option value="">Pick a building…</option>
+              {projectBuildings.map((b) => (
+                <option key={b.id} value={b.name}>
+                  {b.name}
+                </option>
+              ))}
+            </Select>
+          ) : (
+            <p className="text-xs text-[var(--color-text-muted)]">
+              No buildings yet for this project. Add one below.
+            </p>
+          )}
           <FieldError message={errors.building} />
+          <div className="flex gap-2 mt-1">
+            <Input
+              value={newBuildingName}
+              onChange={(e) => setNewBuildingName(e.target.value)}
+              placeholder="+ Add a new building"
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  void handleCreateBuilding();
+                }
+              }}
+            />
+            <Button
+              type="button"
+              size="sm"
+              onClick={handleCreateBuilding}
+              disabled={
+                creatingBuilding ||
+                !currentProject ||
+                newBuildingName.trim().length < 2
+              }
+            >
+              {creatingBuilding ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <Plus size={14} />
+              )}{" "}
+              Add
+            </Button>
+          </div>
         </Field>
         <Field>
           <Label htmlFor="na-location">Location</Label>

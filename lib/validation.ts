@@ -11,6 +11,36 @@ export const loginSchema = z.object({
 
 export type LoginInput = z.infer<typeof loginSchema>;
 
+export const signupSchema = z
+  .object({
+    name: z.string().min(2, "Enter your full name.").max(120),
+    email: z.string().email("Enter a valid email address."),
+    password: z
+      .string()
+      .min(8, "Use at least 8 characters.")
+      .max(128, "Password is too long."),
+    role: z.enum(["inspector", "client"]),
+    companyName: z
+      .string()
+      .min(2, "Company name must be at least 2 characters.")
+      .max(120)
+      .optional(),
+    projectName: z
+      .string()
+      .min(2, "Project name must be at least 2 characters.")
+      .max(120)
+      .optional(),
+  })
+  .refine(
+    (data) => data.role !== "client" || !!data.companyName?.trim(),
+    {
+      path: ["companyName"],
+      message: "Company name is required for client signups.",
+    },
+  );
+
+export type SignupInput = z.infer<typeof signupSchema>;
+
 export const inspectionInputSchema = z.object({
   anchorId: z
     .string()

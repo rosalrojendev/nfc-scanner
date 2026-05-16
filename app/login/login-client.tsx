@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Card, Eyebrow } from "@/components/ui/card";
@@ -216,6 +217,16 @@ export function LoginClient({ nextPath }: { nextPath: string }) {
           </span>
         </div>
       </div>
+      <p className="text-sm text-center text-[var(--color-text-muted)]">
+        Don&apos;t have an account?{" "}
+        <Link
+          href="/signup"
+          className="font-semibold"
+          style={{ color: "var(--color-primary)" }}
+        >
+          Create one
+        </Link>
+      </p>
     </Card>
   );
 }

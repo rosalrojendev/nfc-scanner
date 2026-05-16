@@ -5,6 +5,7 @@ import { useSyncExternalStore } from "react";
 export interface Inspector {
   id: string;
   clientId: string;
+  userId: string;
   name: string;
   avatar: string | null;
 }
@@ -79,6 +80,7 @@ async function bootstrap(): Promise<void> {
 interface RawInspector {
   id: string;
   clientId: string;
+  userId: string;
   name: string;
   avatarUrl: string | null;
 }
@@ -116,6 +118,7 @@ export async function refetchAll(): Promise<void> {
   const inspectors = ((insp.inspectors ?? []) as RawInspector[]).map((i) => ({
     id: i.id,
     clientId: i.clientId,
+    userId: i.userId,
     name: i.name,
     avatar: i.avatarUrl,
   }));
@@ -196,14 +199,9 @@ async function postJSON(
 
 export async function addInspector(
   clientId: string,
-  name: string,
-  avatarUrl: string | null = null,
+  userId: string,
 ): Promise<Inspector | null> {
-  const r = await postJSON("/api/inspectors", {
-    clientId,
-    name,
-    avatarUrl,
-  });
+  const r = await postJSON("/api/inspectors", { clientId, userId });
   if (!r.ok) {
     const j = await r.json().catch(() => ({}));
     throw new Error(j.error || `Failed to add inspector (${r.status})`);
@@ -213,6 +211,7 @@ export async function addInspector(
   return {
     id: j.inspector.id,
     clientId: j.inspector.clientId,
+    userId: j.inspector.userId,
     name: j.inspector.name,
     avatar: j.inspector.avatarUrl,
   };
@@ -220,10 +219,9 @@ export async function addInspector(
 
 export async function updateInspector(
   id: string,
-  patch: { name?: string; avatar?: string | null },
+  patch: { avatar?: string | null },
 ): Promise<void> {
-  const body: { name?: string; avatarUrl?: string | null } = {};
-  if (patch.name !== undefined) body.name = patch.name;
+  const body: { avatarUrl?: string | null } = {};
   if (patch.avatar !== undefined) body.avatarUrl = patch.avatar;
   const r = await postJSON(
     `/api/inspectors/${encodeURIComponent(id)}`,

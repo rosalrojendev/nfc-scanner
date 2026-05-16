@@ -599,11 +599,87 @@ export async function removeDrawingPin(
   }
 }
 
+// ---- buildings -----------------------------------------------------------
+
+export interface BuildingRecord {
+  id: string;
+  projectId: string;
+  name: string;
+}
+
+export async function listBuildings(
+  projectIds: string[],
+): Promise<BuildingRecord[]> {
+  if (projectIds.length === 0) return [];
+  const rows = await prisma.building.findMany({
+    where: { projectId: { in: projectIds } },
+    orderBy: { name: "asc" },
+  });
+  return rows.map((b) => ({
+    id: b.id,
+    projectId: b.projectId,
+    name: b.name,
+  }));
+}
+
+export async function getBuilding(id: string): Promise<BuildingRecord | null> {
+  const b = await prisma.building.findUnique({ where: { id } });
+  return b ? { id: b.id, projectId: b.projectId, name: b.name } : null;
+}
+
+export async function createBuilding(input: {
+  projectId: string;
+  name: string;
+}): Promise<BuildingRecord> {
+  const b = await prisma.building.create({
+    data: { projectId: input.projectId, name: input.name.trim() },
+  });
+  return { id: b.id, projectId: b.projectId, name: b.name };
+}
+
+export async function updateBuilding(
+  id: string,
+  patch: { name?: string },
+): Promise<BuildingRecord> {
+  const trimmed = patch.name?.trim();
+  // Cascade rename: any anchor/drawing whose building string matches the
+  // old name in this project gets updated. Keeps display values in sync.
+  return await prisma.$transaction(async (tx) => {
+    const before = await tx.building.findUnique({ where: { id } });
+    if (!before) throw new Error("Building not found");
+    const b = await tx.building.update({
+      where: { id },
+      data: { name: trimmed },
+    });
+    if (trimmed && trimmed !== before.name) {
+      await tx.anchor.updateMany({
+        where: { projectId: b.projectId, building: before.name },
+        data: { building: trimmed },
+      });
+      await tx.drawing.updateMany({
+        where: { projectId: b.projectId, building: before.name },
+        data: { building: trimmed },
+      });
+    }
+    return { id: b.id, projectId: b.projectId, name: b.name };
+  });
+}
+
+export async function deleteBuilding(id: string): Promise<boolean> {
+  try {
+    await prisma.building.delete({ where: { id } });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 // ---- inspectors ----------------------------------------------------------
 
 export interface InspectorRecord {
   id: string;
   clientId: string;
+  userId: string;
   name: string;
   avatarUrl: string | null;
 }
@@ -619,53 +695,104 @@ export async function listInspectors(
   return rows.map((i) => ({
     id: i.id,
     clientId: i.clientId,
+    userId: i.userId,
     name: i.name,
     avatarUrl: i.avatarUrl,
   }));
 }
 
+// Adds an existing User to a client's roster. Auto-creates a Membership so
+// the user can access the client's data, and snapshots the user's name onto
+// the roster row at the moment of assignment.
 export async function createInspector(input: {
   clientId: string;
-  name: string;
-  avatarUrl?: string | null;
+  userId: string;
 }): Promise<InspectorRecord> {
-  const i = await prisma.inspector.create({
-    data: {
-      clientId: input.clientId,
-      name: input.name.trim(),
-      avatarUrl: input.avatarUrl ?? null,
-    },
+  const user = await prisma.user.findUnique({
+    where: { id: input.userId },
+    select: { id: true, name: true, avatarUrl: true, role: true },
   });
-  return {
-    id: i.id,
-    clientId: i.clientId,
-    name: i.name,
-    avatarUrl: i.avatarUrl,
-  };
+  if (!user) throw new Error("User not found");
+  if (user.role !== "inspector") {
+    throw new Error("Only inspector-role users can be added to the roster.");
+  }
+  return await prisma.$transaction(async (tx) => {
+    await tx.membership.upsert({
+      where: {
+        userId_clientId: {
+          userId: input.userId,
+          clientId: input.clientId,
+        },
+      },
+      update: {},
+      create: {
+        userId: input.userId,
+        clientId: input.clientId,
+        role: "member",
+      },
+    });
+    const i = await tx.inspector.upsert({
+      where: {
+        clientId_userId: {
+          clientId: input.clientId,
+          userId: input.userId,
+        },
+      },
+      update: { name: user.name, avatarUrl: user.avatarUrl },
+      create: {
+        clientId: input.clientId,
+        userId: input.userId,
+        name: user.name,
+        avatarUrl: user.avatarUrl,
+      },
+    });
+    return {
+      id: i.id,
+      clientId: i.clientId,
+      userId: i.userId,
+      name: i.name,
+      avatarUrl: i.avatarUrl,
+    };
+  });
 }
 
 export async function updateInspector(
   id: string,
-  patch: { name?: string; avatarUrl?: string | null },
+  patch: { avatarUrl?: string | null },
 ): Promise<InspectorRecord> {
+  // Name comes from User.name now. Only avatar can be patched directly on
+  // the roster row (per-client override of the user's avatar).
   const i = await prisma.inspector.update({
     where: { id },
-    data: {
-      name: patch.name?.trim(),
-      avatarUrl: patch.avatarUrl,
-    },
+    data: { avatarUrl: patch.avatarUrl },
   });
   return {
     id: i.id,
     clientId: i.clientId,
+    userId: i.userId,
     name: i.name,
     avatarUrl: i.avatarUrl,
   };
 }
 
+// Removes from roster AND removes the corresponding membership, so the user
+// loses access to the client's data.
 export async function deleteInspector(id: string): Promise<boolean> {
   try {
-    await prisma.inspector.delete({ where: { id } });
+    const i = await prisma.inspector.findUnique({ where: { id } });
+    if (!i) return false;
+    await prisma.$transaction(async (tx) => {
+      await tx.inspector.delete({ where: { id } });
+      await tx.membership
+        .delete({
+          where: {
+            userId_clientId: { userId: i.userId, clientId: i.clientId },
+          },
+        })
+        .catch(() => {
+          // Membership might already be gone; not fatal.
+        });
+    });
     return true;
   } catch {
     return false;
@@ -680,6 +807,7 @@ export async function getInspector(
     ? {
         id: i.id,
         clientId: i.clientId,
+        userId: i.userId,
         name: i.name,
         avatarUrl: i.avatarUrl,
       }
@@ -786,6 +914,72 @@ export async function updateUserPrefs(
     },
   });
   return u;
+}
+
+// ---- profile (name / email / password) -----------------------------------
+
+export interface ProfileUpdate {
+  name?: string;
+  email?: string;
+  passwordHash?: string;
+}
+
+export interface ProfileResult {
+  id: string;
+  email: string;
+  name: string;
+}
+
+export async function updateUserProfile(
+  userId: string,
+  patch: ProfileUpdate,
+): Promise<ProfileResult> {
+  return await prisma.$transaction(async (tx) => {
+    const before = await tx.user.findUnique({
+      where: { id: userId },
+      select: { name: true },
+    });
+    if (!before) throw new Error("User not found");
+    const u = await tx.user.update({
+      where: { id: userId },
+      data: {
+        name: patch.name?.trim(),
+        email: patch.email?.toLowerCase(),
+        passwordHash: patch.passwordHash,
+      },
+      select: { id: true, email: true, name: true },
+    });
+    // Cascade: refresh the cached name on every Inspector roster entry
+    // for this user, so picker labels stay in sync.
+    if (patch.name && patch.name.trim() !== before.name) {
+      await tx.inspector.updateMany({
+        where: { userId },
+        data: { name: patch.name.trim() },
+      });
+    }
+    return u;
+  });
+}
+
+export async function emailAlreadyUsed(
+  email: string,
+  excludeUserId: string,
+): Promise<boolean> {
+  const u = await prisma.user.findUnique({
+    where: { email: email.toLowerCase() },
+    select: { id: true },
+  });
+  return !!u && u.id !== excludeUserId;
+}
+
+export async function getUserPasswordHash(
+  userId: string,
+): Promise<string | null> {
+  const u = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { passwordHash: true },
+  });
+  return u?.passwordHash ?? null;
 }
 
 // ---- admin ---------------------------------------------------------------
