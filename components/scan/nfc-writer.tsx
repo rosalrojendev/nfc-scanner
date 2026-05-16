@@ -17,20 +17,32 @@ interface NfcWriterProps {
   payload: NfcTagPayload;
   onWritten?: () => void;
   buttonLabel?: string;
+  /**
+   * Initial write mode. Defaults to "url" because the URL alone fits even
+   * on the smallest common stickers (NTAG213, ~110 usable bytes). The user
+   * can opt into MIME metadata via a checkbox if their tags are bigger.
+   */
   mode?: NfcWriteMode;
 }
+
+// Conservative usable-byte estimate for common cheap NFC tags after
+// NDEF/header overhead. Below this, "small tag" warning won't appear.
+const SMALL_TAG_BUDGET = 110;
 
 export function NfcWriter({
   payload,
   onWritten,
   buttonLabel = "Write to NFC tag",
-  mode = "both",
+  mode = "url",
 }: NfcWriterProps) {
   const supported =
     typeof window !== "undefined" && "NDEFReader" in window;
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [success, setSuccess] = React.useState(false);
+  const [includeMime, setIncludeMime] = React.useState(
+    mode === "mime" || mode === "both",
+  );
   const abortRef = React.useRef<AbortController | null>(null);
 
   React.useEffect(() => {
@@ -46,11 +58,12 @@ export function NfcWriter({
     () => new TextEncoder().encode(tagUrl).byteLength,
     [tagUrl],
   );
-  const writeUrl = mode === "url" || mode === "both";
-  const writeMime = mode === "mime" || mode === "both";
+  const writeUrl = mode !== "mime"; // URL always written unless caller forces mime-only
+  const writeMime = mode === "mime" || (mode !== "url" && includeMime);
   const totalBytes =
     (writeMime ? encoded.bytes : 0) + (writeUrl ? urlBytes : 0);
   const withinLimit = totalBytes <= NFC_MAX_BYTES;
+  const mayExceedSmallTag = totalBytes > SMALL_TAG_BUDGET;
 
   async function write() {
     if (!supported) {
@@ -113,14 +126,26 @@ export function NfcWriter({
       setSuccess(true);
       onWritten?.();
     } catch (e) {
-      const message =
-        e instanceof Error
-          ? e.message
-          : "Could not write tag. Hold the phone closer.";
-      setError(message);
+      setError(translateWriteError(e));
     } finally {
       setBusy(false);
     }
+  }
+
+  function translateWriteError(e: unknown): string {
+    const raw = e instanceof Error ? e.message : String(e);
+    const lower = raw.toLowerCase();
+    if (lower.includes("io error") || lower.includes("not enough")) {
+      if (writeMime && mayExceedSmallTag) {
+        return "Tag rejected the write — it likely doesn't have enough memory for the metadata. Uncheck \"Also write metadata snapshot\" to write the URL only.";
+      }
+      return "Tag couldn't be written. Hold the phone steady against the tag for 2 seconds, or try a different tag (it may be read-only).";
+    }
+    if (lower.includes("aborted")) return "Write cancelled.";
+    if (lower.includes("permission") || lower.includes("not allowed")) {
+      return "NFC permission denied. Tap the lock icon in Chrome's address bar → Permissions → set NFC to Allow.";
+    }
+    return raw || "Could not write tag. Hold the phone closer.";
   }
 
   function cancel() {
@@ -143,13 +168,33 @@ export function NfcWriter({
         )}
         <span className="text-xs text-[var(--color-text-muted)]">
           {writeUrl && writeMime
-            ? `URL ${urlBytes} B + MIME ${encoded.bytes} B`
+            ? `URL ${urlBytes} B + MIME ${encoded.bytes} B = ${totalBytes} B`
             : writeUrl
               ? `URL ${urlBytes} B`
               : `MIME ${encoded.bytes} B`}
-          {" "}/ {NFC_MAX_BYTES.toLocaleString()} B max
         </span>
       </div>
+      {mode !== "url" && mode !== "mime" ? (
+        <label className="text-xs text-[var(--color-text-muted)] inline-flex items-center gap-1.5 select-none">
+          <input
+            type="checkbox"
+            checked={includeMime}
+            onChange={(e) => setIncludeMime(e.target.checked)}
+            className="!min-h-0 !w-4 !h-4 !p-0"
+          />
+          Also write metadata snapshot (needs an NTAG215+ sticker — ~470 B
+          usable). Skip for small NTAG213 tags (~110 B usable).
+        </label>
+      ) : null}
+      {writeMime && mayExceedSmallTag ? (
+        <p
+          className="text-xs"
+          style={{ color: "var(--color-warning, #f59e0b)" }}
+        >
+          ⚠ Payload is {totalBytes} B. Small NTAG213 tags (~110 B usable) will
+          reject this — use NTAG215 or write URL only.
+        </p>
+      ) : null}
       {!supported ? (
         <p className="text-xs text-[var(--color-text-muted)] inline-flex items-center gap-1">
           <Smartphone size={14} /> NFC writing requires Android Chrome over
