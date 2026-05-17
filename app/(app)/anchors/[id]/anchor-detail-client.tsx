@@ -14,6 +14,7 @@ import {
   patchAnchor,
   deleteAnchorById,
 } from "@/lib/store";
+import { useDrawings } from "@/lib/drawings-store";
 import { useIsFetching } from "@/lib/loading-state";
 import { ClimbingLoader } from "@/components/shell/climbing-loader";
 import { formatDate, daysUntil } from "@/lib/utils";
@@ -29,10 +30,12 @@ import {
   ShieldCheck,
   AlertTriangle,
   AlertOctagon,
+  ChevronDown,
   Image as ImageIcon,
-  ExternalLink,
+  Maximize2,
   Trash2,
 } from "lucide-react";
+import { PhotoLightbox } from "@/components/photo-lightbox";
 import type { Anchor } from "@/lib/types";
 import { NfcWriter } from "@/components/scan/nfc-writer";
 import { AnchorQrPanel } from "@/components/anchors/anchor-qr-panel";
@@ -45,8 +48,15 @@ export function AnchorDetailClient({ id }: { id: string }) {
   const { notify } = useToast();
   const anchors = useAnchors();
   const inspections = useInspections();
+  const drawings = useDrawings();
   const isFetching = useIsFetching();
   const anchor = anchors.find((a) => a.id === id);
+  // The first drawing whose pin set contains this anchor — used to deep-link
+  // the "Open drawing" button to the right card instead of the full library.
+  const pinnedDrawing = React.useMemo(
+    () => drawings.find((d) => d.anchors.some((pin) => pin.id === id)) ?? null,
+    [drawings, id],
+  );
   // The server already verified this anchor exists and is accessible
   // (see page.tsx). If our local cache is still empty, we're just
   // mid-bootstrap — show the loader instead of flashing "not found".
@@ -62,6 +72,25 @@ export function AnchorDetailClient({ id }: { id: string }) {
     [inspections, id],
   );
 
+  // Flattened, chronological (newest-first) view of every inspection's photos
+  // for this anchor. The lightbox carries this whole list so the user can
+  // swipe across inspections; the gallery card groups them visually by the
+  // inspection they came from, so each thumb still has audit context.
+  const photoGallery = React.useMemo(() => {
+    const groups: Array<{ rec: (typeof history)[number]; startIndex: number }> =
+      [];
+    let offset = 0;
+    for (const rec of history) {
+      if (rec.photos.length === 0) continue;
+      groups.push({ rec, startIndex: offset });
+      offset += rec.photos.length;
+    }
+    return {
+      groups,
+      flatUrls: groups.flatMap((g) => g.rec.photos),
+    };
+  }, [history]);
+
   const session = useSession();
   const canEdit = can.editAnchor(session.role);
   const canLog = can.logInspection(session.role);
@@ -75,6 +104,13 @@ export function AnchorDetailClient({ id }: { id: string }) {
   const [serialOpen, setSerialOpen] = React.useState(false);
   const [serialDraft, setSerialDraft] = React.useState("");
   const [savingSerial, setSavingSerial] = React.useState(false);
+  const [lightbox, setLightbox] = React.useState<{
+    photos: string[];
+    index: number;
+  } | null>(null);
+  const [galleryOpen, setGalleryOpen] = React.useState(false);
+  const [galleryPage, setGalleryPage] = React.useState(0);
+  const GALLERY_PAGE_SIZE = 5;
   const confirmTokenNormalized = (anchor?.id ?? "").trim().toLowerCase();
   const canConfirmDelete =
     confirmTokenNormalized.length > 0 &&
@@ -233,6 +269,7 @@ export function AnchorDetailClient({ id }: { id: string }) {
           <KV label="NFC tag" value={anchor.nfcTag || "—"} />
           <KV label="QR code" value={anchor.qrCode || anchor.id} />
           <KV label="Drawing" value={anchor.drawing} />
+          <KV label="Installed" value={formatDate(anchor.createdAt)} />
           <KV label="Last tested" value={formatDate(anchor.lastTested)} />
           <KV
             label="Retest due"
@@ -265,9 +302,14 @@ export function AnchorDetailClient({ id }: { id: string }) {
               </Button>
             </Link>
           ) : null}
-          <Link href="/drawings">
+          <Link
+            href={
+              pinnedDrawing ? `/drawings#drawing-${pinnedDrawing.id}` : "/drawings"
+            }
+          >
             <Button>
-              <MapIcon size={16} /> Open drawing
+              <MapIcon size={16} />
+              {pinnedDrawing ? "Open drawing" : "Browse drawings"}
             </Button>
           </Link>
           {canEdit ? (
@@ -287,6 +329,145 @@ export function AnchorDetailClient({ id }: { id: string }) {
           ) : null}
         </div>
       </Card>
+
+      {photoGallery.groups.length > 0 ? (
+        (() => {
+          const totalGroups = photoGallery.groups.length;
+          const totalPages = Math.max(
+            1,
+            Math.ceil(totalGroups / GALLERY_PAGE_SIZE),
+          );
+          const page = Math.min(galleryPage, totalPages - 1);
+          const pagedGroups = photoGallery.groups.slice(
+            page * GALLERY_PAGE_SIZE,
+            page * GALLERY_PAGE_SIZE + GALLERY_PAGE_SIZE,
+          );
+          const showingFrom = page * GALLERY_PAGE_SIZE + 1;
+          const showingTo = Math.min(
+            page * GALLERY_PAGE_SIZE + GALLERY_PAGE_SIZE,
+            totalGroups,
+          );
+
+          return (
+            <Card>
+              <button
+                type="button"
+                onClick={() => setGalleryOpen((v) => !v)}
+                aria-expanded={galleryOpen}
+                aria-controls="anchor-photo-gallery-body"
+                className="flex items-start justify-between gap-3 text-left -m-1 p-1 rounded-2xl hover:bg-[var(--color-surface-2)] transition"
+              >
+                <div className="min-w-0">
+                  <Eyebrow>Visual record</Eyebrow>
+                  <h2 className="text-lg font-semibold tracking-tight mt-1 inline-flex items-center gap-2">
+                    <ImageIcon size={18} /> Inspection photos
+                  </h2>
+                  <p className="text-sm text-[var(--color-text-muted)] mt-1">
+                    {photoGallery.flatUrls.length} photo
+                    {photoGallery.flatUrls.length === 1 ? "" : "s"} across{" "}
+                    {totalGroups} inspection{totalGroups === 1 ? "" : "s"}.
+                    Swipe in the viewer to compare across inspections.
+                  </p>
+                </div>
+                <span
+                  className="shrink-0 inline-flex items-center justify-center w-9 h-9 rounded-full bg-[var(--color-surface-2)] border border-[var(--color-border)] transition-transform"
+                  style={{
+                    transform: galleryOpen ? "rotate(180deg)" : undefined,
+                  }}
+                  aria-hidden
+                >
+                  <ChevronDown size={18} />
+                </span>
+              </button>
+
+              {galleryOpen ? (
+                <div id="anchor-photo-gallery-body" className="grid gap-4">
+                  {pagedGroups.map(({ rec, startIndex }) => (
+                    <section key={rec.id} className="grid gap-2">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <span className="text-sm inline-flex items-center gap-1.5 flex-wrap">
+                          <strong>{formatDate(rec.testDate)}</strong>
+                          <span className="text-[var(--color-text-faint)]">
+                            ·
+                          </span>
+                          <InspectorTag name={rec.inspector} size={18} />
+                        </span>
+                        {rec.result === "pass" ? (
+                          <Badge variant="success">Pass</Badge>
+                        ) : rec.result === "review" ? (
+                          <Badge variant="warning">Review</Badge>
+                        ) : (
+                          <Badge variant="error">Failed</Badge>
+                        )}
+                      </div>
+                      <div className="flex gap-2 overflow-auto -mx-1 px-1 pb-1">
+                        {rec.photos.map((p, i) => (
+                          <button
+                            type="button"
+                            key={i}
+                            onClick={() =>
+                              setLightbox({
+                                photos: photoGallery.flatUrls,
+                                index: startIndex + i,
+                              })
+                            }
+                            className="relative shrink-0 group"
+                            aria-label={`Open photo ${i + 1} of ${rec.photos.length} from ${formatDate(rec.testDate)}`}
+                          >
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={p}
+                              alt={`Inspection photo ${i + 1} from ${formatDate(rec.testDate)}`}
+                              className="w-32 h-24 object-cover rounded-2xl border border-[var(--color-border)] group-hover:opacity-90 transition"
+                            />
+                            <span
+                              className="absolute bottom-1 right-1 bg-black/60 text-white rounded-full w-6 h-6 grid place-items-center"
+                              aria-hidden
+                            >
+                              <Maximize2 size={12} />
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    </section>
+                  ))}
+
+                  {totalPages > 1 ? (
+                    <div className="flex items-center justify-between gap-2 border-t border-[var(--color-border)] -mx-1 px-1 pt-3">
+                      <span className="text-xs text-[var(--color-text-muted)]">
+                        Showing {showingFrom}–{showingTo} of {totalGroups}{" "}
+                        inspections
+                      </span>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          onClick={() => setGalleryPage((p) => Math.max(0, p - 1))}
+                          disabled={page === 0}
+                          aria-label="Previous page"
+                        >
+                          Prev
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={() =>
+                            setGalleryPage((p) =>
+                              Math.min(totalPages - 1, p + 1),
+                            )
+                          }
+                          disabled={page >= totalPages - 1}
+                          aria-label="Next page"
+                        >
+                          Next
+                        </Button>
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+            </Card>
+          );
+        })()
+      ) : null}
 
       {canWriteTag ? (
         <Card>
@@ -368,43 +549,12 @@ export function AnchorDetailClient({ id }: { id: string }) {
                 </p>
               ) : null}
               {rec.photos.length > 0 ? (
-                <>
-                  <div className="flex gap-2 overflow-auto -mx-1 px-1">
-                    {rec.photos.map((p, i) => (
-                      <Link
-                        key={i}
-                        href={p}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="relative shrink-0 group"
-                        aria-label={`Open photo ${i + 1} in new tab`}
-                      >
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={p}
-                          alt={`Inspection photo ${i + 1}`}
-                          className="w-28 h-20 object-cover rounded-xl border border-[var(--color-border)] group-hover:opacity-80 transition"
-                        />
-                        <span className="absolute bottom-1 right-1 bg-black/60 text-white rounded-full w-6 h-6 grid place-items-center">
-                          <ExternalLink size={12} />
-                        </span>
-                      </Link>
-                    ))}
-                  </div>
-                  <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs">
-                    {rec.photos.map((p, i) => (
-                      <Link
-                        key={i}
-                        href={p}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-[var(--color-primary)] font-semibold"
-                      >
-                        <ImageIcon size={12} /> Photo {i + 1} URL
-                      </Link>
-                    ))}
-                  </div>
-                </>
+                <p className="text-xs text-[var(--color-text-faint)] inline-flex items-center gap-1">
+                  <ImageIcon size={12} />
+                  {rec.photos.length} photo
+                  {rec.photos.length === 1 ? "" : "s"} — see the visual record
+                  above.
+                </p>
               ) : null}
               {can.editInspection(session.role) ? (
                 <div className="flex justify-end">
@@ -630,6 +780,14 @@ export function AnchorDetailClient({ id }: { id: string }) {
           </Button>
         </div>
       </Dialog>
+
+      <PhotoLightbox
+        photos={lightbox?.photos ?? []}
+        startIndex={lightbox?.index ?? 0}
+        open={lightbox !== null}
+        onClose={() => setLightbox(null)}
+        ariaLabel={`Inspection photos for ${anchor.id}`}
+      />
     </>
   );
 }

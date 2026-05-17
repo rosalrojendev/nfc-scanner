@@ -472,7 +472,7 @@ function DrawingCard({
   }
 
   return (
-    <Card>
+    <Card id={`drawing-${d.id}`} className="scroll-mt-24">
       <div className="flex items-start justify-between gap-3">
         <div>
           <strong>

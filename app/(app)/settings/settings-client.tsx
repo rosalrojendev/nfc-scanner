@@ -7,6 +7,8 @@ import { resetServerStore } from "@/lib/store";
 import { useToast } from "@/components/ui/toast";
 import { ThemeToggle } from "@/components/shell/theme-toggle";
 import { PaletteToggle } from "@/components/shell/palette-toggle";
+import { LanguageToggle } from "@/components/shell/language-toggle";
+import { useT } from "@/lib/i18n";
 import {
   RotateCcw,
   ShieldCheck,
@@ -36,6 +38,7 @@ import { Building, UserCog } from "lucide-react";
 export function SettingsClient() {
   const { notify } = useToast();
   const session = useSession();
+  const t = useT();
   const role = session.role;
   const isAdmin = can.manageUsers(role);
   const canReset = can.resetStore(role);
@@ -254,26 +257,46 @@ export function SettingsClient() {
 
       <Card>
         <div>
-          <Eyebrow>Appearance</Eyebrow>
+          <Eyebrow>{t("settings.appearance.eyebrow")}</Eyebrow>
           <h2 className="text-lg font-semibold tracking-tight mt-1">
-            Theme and accessibility
+            {t("settings.appearance.title")}
           </h2>
         </div>
         <div className="flex flex-wrap gap-2 items-center">
           <ThemeToggle />
           <p className="text-sm text-[var(--color-text-muted)]">
-            Dark mode is recommended for sun-bright roof conditions.
+            {t("settings.appearance.darkModeHint")}
           </p>
         </div>
         <div className="grid gap-2">
           <span className="text-xs uppercase tracking-wider text-[var(--color-text-muted)] font-semibold">
-            Brand palette
+            {t("settings.appearance.brandPaletteLabel")}
           </span>
           <PaletteToggle />
           <p className="text-xs text-[var(--color-text-muted)]">
-            <strong>Anchor</strong> is the current steel-teal branding.{" "}
-            <strong>Classic</strong> restores the warm cream + orange Kamloops
-            Rope Access palette.
+            <strong>{t("settings.appearance.brandPaletteHintAnchor")}</strong>{" "}
+            {t("settings.appearance.brandPaletteHintBody", {
+              classic: t("settings.appearance.brandPaletteHintClassic"),
+            })
+              .split(/(\{classic\})/)
+              .map((part, i) =>
+                part === "{classic}" ? (
+                  <strong key={i}>
+                    {t("settings.appearance.brandPaletteHintClassic")}
+                  </strong>
+                ) : (
+                  <React.Fragment key={i}>{part}</React.Fragment>
+                ),
+              )}
+          </p>
+        </div>
+        <div className="grid gap-2">
+          <span className="text-xs uppercase tracking-wider text-[var(--color-text-muted)] font-semibold">
+            {t("settings.appearance.languageLabel")}
+          </span>
+          <LanguageToggle />
+          <p className="text-xs text-[var(--color-text-muted)]">
+            {t("settings.appearance.languageHint")}
           </p>
         </div>
       </Card>

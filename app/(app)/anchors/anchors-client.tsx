@@ -8,6 +8,7 @@ import { Select, Label, Field } from "@/components/ui/input";
 import { SearchField } from "@/components/ui/search-field";
 import { Segmented } from "@/components/ui/segmented";
 import { useAnchors, useStoreLoaded } from "@/lib/store";
+import { useBuildings } from "@/lib/buildings-store";
 import { useProjectContext } from "@/components/shell/project-provider";
 import { useSession } from "@/components/shell/session-provider";
 import { can } from "@/lib/permissions";
@@ -72,11 +73,27 @@ export function AnchorsClient() {
   const [sort, setSort] = React.useState<Sort>("due");
   const [newOpen, setNewOpen] = React.useState(false);
 
+  // Buildings come from two sources:
+  //   1. Anchors that already exist (their `building` string column)
+  //   2. The Building table — fresh buildings added in Settings or via the
+  //      new-anchor dialog that don't have any anchors yet
+  // We merge both so a just-created building shows up immediately, even
+  // before its first anchor is registered.
+  const allBuildings = useBuildings();
+  const projectBuildings = React.useMemo(
+    () =>
+      currentProjectId
+        ? allBuildings.filter((b) => b.projectId === currentProjectId)
+        : allBuildings,
+    [allBuildings, currentProjectId],
+  );
+
   const buildings = React.useMemo(() => {
     const set = new Set<string>();
-    for (const a of anchors) set.add(a.building);
+    for (const a of anchors) if (a.building) set.add(a.building);
+    for (const b of projectBuildings) if (b.name) set.add(b.name);
     return Array.from(set).sort();
-  }, [anchors]);
+  }, [anchors, projectBuildings]);
 
   const filtered = React.useMemo(() => {
     const q = query.trim().toLowerCase();

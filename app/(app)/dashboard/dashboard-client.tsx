@@ -14,6 +14,7 @@ import {
   useStoreLoaded,
 } from "@/lib/store";
 import { useProjectContext } from "@/components/shell/project-provider";
+import { useBuildings } from "@/lib/buildings-store";
 import { daysUntil, formatDate } from "@/lib/utils";
 import {
   ScanLine,
@@ -68,6 +69,7 @@ export function DashboardClient() {
   // and due-list correct.
   const allAnchorsWithDeleted = useAllAnchors();
   const allInspectionsWithDeleted = useAllInspections();
+  const allBuildings = useBuildings();
   const { currentProjectId } = useProjectContext();
   const storeLoaded = useStoreLoaded();
   const anchors = React.useMemo(
@@ -199,7 +201,19 @@ export function DashboardClient() {
     allInspectionsWithDeleted,
   ]);
 
-  const buildings = new Set(anchors.map((a) => a.building)).size;
+  // Union of buildings that already have anchors + freshly added Building
+  // rows for the current project, so a building registered in Settings is
+  // counted even before its first anchor is created.
+  const buildings = (() => {
+    const names = new Set<string>();
+    for (const a of anchors) if (a.building) names.add(a.building);
+    for (const b of allBuildings) {
+      if (!currentProjectId || b.projectId === currentProjectId) {
+        names.add(b.name);
+      }
+    }
+    return names.size;
+  })();
   const inspectorsCount = new Set(
     inspections.map((i) => i.inspector).filter(Boolean),
   ).size;

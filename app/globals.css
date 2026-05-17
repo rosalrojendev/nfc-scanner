@@ -192,6 +192,46 @@ p {
     padding: 0.95rem 1rem;
     resize: vertical;
   }
+
+  /* iOS Safari renders <input type="date" | "time" | "datetime-local"> with
+     a pseudo-element (::-webkit-date-and-time-value) that ignores the
+     parent's line-height, so the value text floats above the box and
+     overlaps the native calendar chevron. Force a sane inline layout and
+     reset the appearance so the date sits left-aligned and vertically
+     centered like every other text input. */
+  input[type="date"],
+  input[type="time"],
+  input[type="datetime-local"],
+  input[type="month"],
+  input[type="week"] {
+    -webkit-appearance: none;
+    appearance: none;
+    text-align: left;
+    /* Stops iOS from collapsing the empty state to 0 height before a
+       value is picked, which is what makes the placeholder ghost when
+       the field gets focus on a small screen. */
+    min-height: 48px;
+  }
+
+  input[type="date"]::-webkit-date-and-time-value,
+  input[type="time"]::-webkit-date-and-time-value,
+  input[type="datetime-local"]::-webkit-date-and-time-value,
+  input[type="month"]::-webkit-date-and-time-value,
+  input[type="week"]::-webkit-date-and-time-value {
+    text-align: left;
+    line-height: 1.4;
+    margin: 0;
+    min-height: 1.4em;
+  }
+
+  /* The native iOS calendar/clock icon picks up `currentColor` by default;
+     thin it down and align it to the right so it doesn't crowd the text. */
+  input[type="date"]::-webkit-calendar-picker-indicator,
+  input[type="time"]::-webkit-calendar-picker-indicator,
+  input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+    opacity: 0.6;
+    cursor: pointer;
+  }
 }
 
 :focus-visible {
