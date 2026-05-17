@@ -20,7 +20,7 @@ export const viewport: Viewport = {
   ],
 };
 
-const themeBootScript = `(function(){try{var t=localStorage.getItem('atp-theme');if(!t){t=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';}document.documentElement.setAttribute('data-theme',t);var p=localStorage.getItem('atp-palette');if(p==='kra'||p==='anchor'){document.documentElement.setAttribute('data-palette',p);}}catch(e){}})();`;
+const themeBootScript = `(function(){try{var t=localStorage.getItem('atp-theme');if(!t){t=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';}document.documentElement.setAttribute('data-theme',t);var p=localStorage.getItem('atp-palette');if(p==='kra'||p==='anchor'){document.documentElement.setAttribute('data-palette',p);}var l=localStorage.getItem('atp-locale');if(l==='fr'||l==='en'){document.documentElement.setAttribute('data-locale',l);}}catch(e){}})();`;
 
 export default function RootLayout({
   children,
