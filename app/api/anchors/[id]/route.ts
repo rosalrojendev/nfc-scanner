@@ -4,6 +4,7 @@ import { can } from "@/lib/permissions";
 import {
   canAccessProject,
   getAnchor,
+  softDeleteAnchor,
   upsertAnchor,
 } from "@/lib/server-store";
 import { anchorPatchSchema } from "@/lib/validation";
@@ -60,4 +61,27 @@ export async function PATCH(
   }
   const updated = await upsertAnchor({ ...anchor, ...parsed.data });
   return NextResponse.json({ anchor: updated });
+}
+
+export async function DELETE(
+  _req: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const session = await getSession();
+  if (!session) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  if (!can.deleteAnchor(session.role)) {
+    return NextResponse.json(
+      { error: "Your role cannot delete anchors." },
+      { status: 403 },
+    );
+  }
+  const { id } = await params;
+  const anchor = await getAnchor(id);
+  if (!anchor || !(await canAccessProject(session, anchor.projectId))) {
+    return NextResponse.json({ error: "Anchor not found" }, { status: 404 });
+  }
+  const ok = await softDeleteAnchor(id, { id: session.id, name: session.name });
+  return NextResponse.json({ ok });
 }

@@ -11,6 +11,7 @@ import { Segmented } from "@/components/ui/segmented";
 import {
   useAnchors,
   useInspections,
+  useStoreLoaded,
   deleteInspectionById,
 } from "@/lib/store";
 import { useProjectContext } from "@/components/shell/project-provider";
@@ -62,6 +63,7 @@ function ResultPill({ result }: { result: InspectionResult }) {
 export function InspectionsClient() {
   const allInspections = useInspections();
   const anchors = useAnchors();
+  const storeLoaded = useStoreLoaded();
   const { currentProjectId } = useProjectContext();
   const inspections = React.useMemo(
     () =>
@@ -136,9 +138,16 @@ export function InspectionsClient() {
             <h1 className="text-xl font-semibold tracking-tight mt-1">
               All inspection records
             </h1>
-            <p className="text-xs text-[var(--color-text-muted)] mt-1">
-              Showing {filtered.length} of {inspections.length}
-            </p>
+            {storeLoaded ? (
+              <p className="text-xs text-[var(--color-text-muted)] mt-1">
+                Showing {filtered.length} of {inspections.length}
+              </p>
+            ) : (
+              <span
+                className="skeleton block h-3 w-32 mt-2"
+                aria-label="Loading inspection count"
+              />
+            )}
           </div>
           {canLog ? (
             <Link href="/inspections/new">
@@ -194,7 +203,13 @@ export function InspectionsClient() {
         ) : null}
       </Card>
 
-      {filtered.length === 0 ? (
+      {!storeLoaded ? (
+        <div className="grid gap-3" aria-label="Loading inspections">
+          <span className="skeleton block h-24 rounded-2xl" />
+          <span className="skeleton block h-24 rounded-2xl" aria-hidden />
+          <span className="skeleton block h-24 rounded-2xl" aria-hidden />
+        </div>
+      ) : filtered.length === 0 ? (
         <Card className="py-12 text-center">
           <p className="text-[var(--color-text-muted)]">
             No inspection records match your filters.

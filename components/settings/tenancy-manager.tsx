@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Eyebrow } from "@/components/ui/card";
 import { Field, Input, Label, Select } from "@/components/ui/input";
@@ -39,12 +38,7 @@ interface TenantData {
   users: UserLite[];
 }
 
-interface Props {
-  open: boolean;
-  onClose: () => void;
-}
-
-export function ManageTenantsDialog({ open, onClose }: Props) {
+export function TenancyManager() {
   const { notify } = useToast();
   const [data, setData] = React.useState<TenantData | null>(null);
   const [loading, setLoading] = React.useState(false);
@@ -67,9 +61,8 @@ export function ManageTenantsDialog({ open, onClose }: Props) {
   }, [notify]);
 
   React.useEffect(() => {
-    if (open) void reload();
-    else setData(null);
-  }, [open, reload]);
+    void reload();
+  }, [reload]);
 
   async function createClient() {
     if (newClientName.trim().length < 2) {
@@ -174,15 +167,7 @@ export function ManageTenantsDialog({ open, onClose }: Props) {
   }
 
   return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      ariaLabel="Manage clients and projects"
-    >
-      <Eyebrow>Tenancy</Eyebrow>
-      <h3 className="text-lg font-semibold tracking-tight">
-        Manage clients &amp; projects
-      </h3>
+    <>
       <p className="text-sm text-[var(--color-text-muted)]">
         {data?.isPlatformAdmin
           ? "Platform admin — you can create clients and manage every project."
@@ -196,7 +181,7 @@ export function ManageTenantsDialog({ open, onClose }: Props) {
       ) : null}
 
       {data ? (
-        <div className="grid gap-4 max-h-[60vh] overflow-auto -mx-1 px-1">
+        <div className="grid gap-4">
           {data.isPlatformAdmin ? (
             <article className="p-4 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-2)] grid gap-2">
               <Eyebrow>Create client</Eyebrow>
@@ -249,11 +234,7 @@ export function ManageTenantsDialog({ open, onClose }: Props) {
           )}
         </div>
       ) : null}
-
-      <div className="flex justify-end">
-        <Button onClick={onClose}>Done</Button>
-      </div>
-    </Dialog>
+    </>
   );
 }
 

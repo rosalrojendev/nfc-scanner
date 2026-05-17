@@ -3,145 +3,99 @@
 import * as React from "react";
 import { useIsFetching } from "@/lib/loading-state";
 
-// Climbing-themed top loader: a tiny climber traverses a horizontal rope
-// across the top of the viewport while data is loading. The rope "fills in"
-// behind them as they go (think tyrolean traversal). When idle, the whole
-// bar fades out.
+// Centered overlay loader scoped to the main content region.
+// - On mobile: spans the full screen width, sits between the topbar and bottom
+//   nav so it never overlaps the chrome and stays visible across the page.
+// - On desktop (lg+): offset right of the 280px side nav and aligned with the
+//   main column, so it reads as "the page is loading", not "the whole UI".
+// A short delay before showing avoids a flash on quick fetches.
 export function GlobalLoader() {
   const isFetching = useIsFetching();
   const [visible, setVisible] = React.useState(false);
 
   React.useEffect(() => {
-    if (isFetching) {
-      setVisible(true);
+    if (!isFetching) {
+      setVisible(false);
       return;
     }
-    // Linger briefly so a quick traversal finishes its arc.
-    const t = window.setTimeout(() => setVisible(false), 280);
+    const t = window.setTimeout(() => setVisible(true), 180);
     return () => window.clearTimeout(t);
   }, [isFetching]);
 
   return (
     <>
       <div
-        aria-hidden
-        className="fixed top-0 left-0 right-0 h-5 z-[100] pointer-events-none overflow-hidden"
+        role="status"
+        aria-label="Loading"
+        aria-live="polite"
+        aria-hidden={!visible}
+        className="atp-global-loader"
         style={{
           opacity: visible ? 1 : 0,
-          transition: "opacity 250ms ease",
+          transition: "opacity 220ms ease",
         }}
       >
-        {/* The rope (static dim line) */}
         <div
-          className="absolute left-0 right-0 top-[10px] h-px"
+          className="flex items-center gap-3 px-5 py-3 rounded-full"
           style={{
             background:
-              "color-mix(in srgb, var(--color-text) 14%, transparent)",
-          }}
-        />
-        {/* The climbed segment — fills as the climber traverses */}
-        <div
-          className="absolute left-0 top-[9px] h-[3px] rounded-full origin-left will-change-transform"
-          style={{
-            width: "100%",
-            background:
-              "linear-gradient(90deg, var(--color-primary), color-mix(in srgb, var(--color-primary) 60%, #10b981))",
-            animation: visible
-              ? "atp-rope-fill 2.4s ease-in-out infinite"
-              : "none",
-          }}
-        />
-        {/* The climber */}
-        <div
-          className="absolute top-0 will-change-transform"
-          style={{
-            color: "var(--color-primary)",
-            animation: visible
-              ? "atp-climber-traverse 2.4s ease-in-out infinite, atp-climber-bob 0.6s ease-in-out infinite"
-              : "none",
+              "color-mix(in srgb, var(--color-surface) 92%, transparent)",
+            border: "1px solid var(--color-border)",
+            boxShadow: "var(--shadow-md)",
+            backdropFilter: "blur(8px)",
+            WebkitBackdropFilter: "blur(8px)",
+            transform: visible ? "scale(1)" : "scale(0.96)",
+            transition: "transform 220ms cubic-bezier(0.34, 1.56, 0.64, 1)",
           }}
         >
           <svg
-            width="20"
-            height="20"
-            viewBox="0 0 20 20"
+            width={24}
+            height={24}
+            viewBox="0 0 24 24"
             fill="none"
+            stroke="currentColor"
+            strokeWidth={1.8}
+            strokeLinecap="round"
+            strokeLinejoin="round"
             aria-hidden
+            style={{
+              color: "var(--color-primary)",
+              transformOrigin: "50% 50%",
+              animation: visible
+                ? "atp-anchor-spin 1.4s linear infinite"
+                : "none",
+            }}
           >
-            {/* head */}
-            <circle cx="10" cy="4.2" r="1.9" fill="currentColor" />
-            {/* torso, slightly forward-leaning */}
-            <line
-              x1="10"
-              y1="6"
-              x2="9"
-              y2="11"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-            />
-            {/* arms — both reaching up to the rope */}
-            <line
-              x1="10"
-              y1="7"
-              x2="7"
-              y2="3"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-            />
-            <line
-              x1="10"
-              y1="7"
-              x2="13"
-              y2="3"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-            />
-            {/* legs — bent, climbing */}
-            <line
-              x1="9"
-              y1="11"
-              x2="7"
-              y2="14"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-            />
-            <line
-              x1="9"
-              y1="11"
-              x2="11"
-              y2="13"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-            />
-            <line
-              x1="11"
-              y1="13"
-              x2="13"
-              y2="17"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-            />
+            <path d="M12 3v8M8 7h8M6 12a6 6 0 0 0 12 0M6 18l-2 3M18 18l2 3" />
           </svg>
+          <span className="text-sm font-semibold text-[var(--color-text)]">
+            Loading…
+          </span>
         </div>
       </div>
       <style>{`
-        @keyframes atp-rope-fill {
-          0%   { transform: scaleX(0); }
-          100% { transform: scaleX(1); }
+        @keyframes atp-anchor-spin {
+          from { transform: rotate(0deg); }
+          to   { transform: rotate(360deg); }
         }
-        @keyframes atp-climber-traverse {
-          0%   { transform: translateX(-22px); }
-          100% { transform: translateX(calc(100vw - 0px)); }
+        .atp-global-loader {
+          position: fixed;
+          z-index: 100;
+          pointer-events: none;
+          display: grid;
+          place-items: center;
+          left: 0;
+          right: 0;
+          top: calc(env(safe-area-inset-top) + 4.5rem);
+          bottom: calc(env(safe-area-inset-bottom) + 6rem);
         }
-        @keyframes atp-climber-bob {
-          0%, 100% { translate: 0 0; }
-          50%      { translate: 0 -2px; }
+        @media (min-width: 1024px) {
+          .atp-global-loader {
+            left: 280px;
+            right: 0;
+            top: calc(env(safe-area-inset-top) + 4.5rem);
+            bottom: 0;
+          }
         }
       `}</style>
     </>

@@ -8,7 +8,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Field, Input, Label } from "@/components/ui/input";
-import { useAnchors, useInspections, patchAnchor } from "@/lib/store";
+import {
+  useAnchors,
+  useInspections,
+  patchAnchor,
+  deleteAnchorById,
+} from "@/lib/store";
 import { useIsFetching } from "@/lib/loading-state";
 import { ClimbingLoader } from "@/components/shell/climbing-loader";
 import { formatDate, daysUntil } from "@/lib/utils";
@@ -26,6 +31,7 @@ import {
   AlertOctagon,
   Image as ImageIcon,
   ExternalLink,
+  Trash2,
 } from "lucide-react";
 import type { Anchor } from "@/lib/types";
 import { NfcWriter } from "@/components/scan/nfc-writer";
@@ -59,8 +65,16 @@ export function AnchorDetailClient({ id }: { id: string }) {
   const canEdit = can.editAnchor(session.role);
   const canLog = can.logInspection(session.role);
   const canWriteTag = can.writeNfc(session.role);
+  const canDelete = can.deleteAnchor(session.role);
   const [editOpen, setEditOpen] = React.useState(false);
   const [draft, setDraft] = React.useState<Partial<Anchor>>({});
+  const [deleteOpen, setDeleteOpen] = React.useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = React.useState("");
+  const [deleting, setDeleting] = React.useState(false);
+  const confirmTokenNormalized = (anchor?.id ?? "").trim().toLowerCase();
+  const canConfirmDelete =
+    confirmTokenNormalized.length > 0 &&
+    deleteConfirmText.trim().toLowerCase() === confirmTokenNormalized;
 
   if (stillLoading) {
     return (
@@ -118,6 +132,25 @@ export function AnchorDetailClient({ id }: { id: string }) {
       notify("Anchor updated.", "success");
     } catch (e) {
       notify(e instanceof Error ? e.message : "Update failed.", "error");
+    }
+  }
+
+  function openDeleteDialog() {
+    setDeleteConfirmText("");
+    setDeleteOpen(true);
+  }
+
+  async function handleDelete() {
+    if (!anchor || !canConfirmDelete) return;
+    setDeleting(true);
+    try {
+      await deleteAnchorById(anchor.id);
+      notify(`Anchor ${anchor.label} deleted.`, "success");
+      router.push("/anchors");
+      router.refresh();
+    } catch (e) {
+      notify(e instanceof Error ? e.message : "Delete failed.", "error");
+      setDeleting(false);
     }
   }
 
@@ -203,6 +236,16 @@ export function AnchorDetailClient({ id }: { id: string }) {
           {canEdit ? (
             <Button onClick={startEdit}>
               <PencilLine size={16} /> Edit metadata
+            </Button>
+          ) : null}
+          {canDelete ? (
+            <Button
+              variant="danger"
+              onClick={openDeleteDialog}
+              disabled={deleting}
+            >
+              <Trash2 size={16} />
+              {deleting ? "Deleting…" : "Delete anchor"}
             </Button>
           ) : null}
         </div>
@@ -389,6 +432,83 @@ export function AnchorDetailClient({ id }: { id: string }) {
           <Button onClick={() => setEditOpen(false)}>Cancel</Button>
           <Button variant="primary" onClick={saveEdit}>
             Save changes
+          </Button>
+        </div>
+      </Dialog>
+
+      <Dialog
+        open={deleteOpen}
+        onClose={() => (deleting ? undefined : setDeleteOpen(false))}
+        ariaLabel="Delete anchor"
+      >
+        <Eyebrow>Delete anchor</Eyebrow>
+        <h3 className="text-lg font-semibold tracking-tight inline-flex items-center gap-2">
+          <AlertOctagon
+            size={20}
+            style={{ color: "var(--color-error)" }}
+            aria-hidden
+          />
+          You&apos;re about to delete {anchor.label}
+        </h3>
+        <div
+          className="p-4 rounded-2xl text-sm grid gap-1.5"
+          style={{
+            background: "var(--color-error-highlight)",
+            color: "var(--color-text)",
+          }}
+        >
+          <p>
+            This anchor and its inspection history will no longer appear in
+            the registry. The record is soft-deleted, so:
+          </p>
+          <ul className="list-disc pl-5 grid gap-1 text-[var(--color-text-muted)]">
+            <li>Past inspections stay in the database for audit.</li>
+            <li>
+              The deletion appears on the dashboard activity feed with your
+              name attached.
+            </li>
+            <li>
+              The anchor cannot be re-created with the same ID until restored
+              by a platform admin.
+            </li>
+          </ul>
+        </div>
+        <Field>
+          <Label htmlFor="confirm-delete">
+            Type{" "}
+            <code className="px-1 py-0.5 rounded bg-[var(--color-surface-2)] border border-[var(--color-border)] text-[var(--color-text)] font-mono text-xs">
+              {anchor.id}
+            </code>{" "}
+            to confirm
+          </Label>
+          <Input
+            id="confirm-delete"
+            autoComplete="off"
+            spellCheck={false}
+            autoCapitalize="off"
+            value={deleteConfirmText}
+            onChange={(e) => setDeleteConfirmText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && canConfirmDelete && !deleting) {
+                e.preventDefault();
+                handleDelete();
+              }
+            }}
+            placeholder={anchor.id}
+            disabled={deleting}
+          />
+        </Field>
+        <div className="flex flex-wrap gap-2 justify-end">
+          <Button onClick={() => setDeleteOpen(false)} disabled={deleting}>
+            Cancel
+          </Button>
+          <Button
+            variant="danger"
+            onClick={handleDelete}
+            disabled={!canConfirmDelete || deleting}
+          >
+            <Trash2 size={16} />
+            {deleting ? "Deleting…" : "Delete permanently"}
           </Button>
         </div>
       </Dialog>

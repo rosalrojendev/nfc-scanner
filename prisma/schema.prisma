@@ -141,28 +141,32 @@ model Membership {
 }
 
 model Anchor {
-  id           String       @id
-  projectId    String
-  label        String
-  building     String
-  location     String
-  drawing      String
-  status       AnchorStatus
-  lastTested   DateTime?
-  nextDue      DateTime?
-  inspector    String?
-  proofResult  String?
-  nfcTag       String?
-  qrCode       String?
-  positionX    Float?
-  positionY    Float?
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
+  id            String       @id
+  projectId     String
+  label         String
+  building      String
+  location      String
+  drawing       String
+  status        AnchorStatus
+  lastTested    DateTime?
+  nextDue       DateTime?
+  inspector     String?
+  proofResult   String?
+  nfcTag        String?
+  qrCode        String?
+  positionX     Float?
+  positionY     Float?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  deletedAt     DateTime?
+  deletedBy     String?
+  deletedByName String?
 
   project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
   inspections Inspection[]
 
   @@index([projectId])
+  @@index([deletedAt])
 }
 
 model Inspection {
@@ -183,6 +187,9 @@ model Inspection {
   submittedByRole Role?
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
+  deletedAt       DateTime?
+  deletedBy       String?
+  deletedByName   String?
 
   project     Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
   anchor      Anchor  @relation(fields: [anchorId], references: [id], onDelete: Cascade)
@@ -191,6 +198,7 @@ model Inspection {
   @@index([projectId])
   @@index([anchorId])
   @@index([testDate])
+  @@index([deletedAt])
 }
 
 model Drawing {

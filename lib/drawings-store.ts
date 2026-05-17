@@ -37,7 +37,6 @@ async function bootstrap(): Promise<void> {
   bootstrapping ??= (async () => {
     try {
       await refetch();
-      bootstrapped = true;
     } finally {
       bootstrapping = null;
     }
@@ -52,6 +51,7 @@ export async function refetch(): Promise<void> {
     if (!r.ok) return;
     const j = (await r.json()) as { drawings: Drawing[] };
     cache = j.drawings;
+    bootstrapped = true;
     notify();
   });
 }
@@ -62,6 +62,15 @@ export function getDrawings(): Drawing[] {
 
 export function useDrawings(): Drawing[] {
   return useSyncExternalStore(subscribe, getDrawings, () => FROZEN_EMPTY);
+}
+
+function getLoaded(): boolean {
+  return bootstrapped;
+}
+
+// True once the first /api/drawings fetch has completed.
+export function useDrawingsLoaded(): boolean {
+  return useSyncExternalStore(subscribe, getLoaded, () => false);
 }
 
 export async function addDrawing(input: {

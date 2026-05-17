@@ -5,14 +5,15 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
-  Anchor as AnchorIcon,
   ClipboardCheck,
   Map as MapIcon,
   FileText,
   Settings,
   ScanLine,
+  Building2,
   MoreHorizontal,
 } from "lucide-react";
+import { AnchorTagIcon } from "@/components/icons/anchor-tag-icon";
 import { cn } from "@/lib/utils";
 import { useSession } from "./session-provider";
 import { can } from "@/lib/permissions";
@@ -31,7 +32,7 @@ interface NavItem {
 const items: NavItem[] = [
   {
     href: "/dashboard",
-    label: "Home",
+    label: "Dashboard",
     icon: LayoutDashboard,
     match: (p) => p === "/dashboard",
     showOnMobile: true,
@@ -40,7 +41,7 @@ const items: NavItem[] = [
   {
     href: "/anchors",
     label: "Anchors",
-    icon: AnchorIcon,
+    icon: AnchorTagIcon,
     match: (p) => p.startsWith("/anchors"),
     showOnMobile: true,
     visibleTo: can.viewAnchors,
@@ -55,7 +56,7 @@ const items: NavItem[] = [
   },
   {
     href: "/inspections",
-    label: "Tests",
+    label: "Inspections",
     icon: ClipboardCheck,
     match: (p) => p.startsWith("/inspections"),
     showOnMobile: true,
@@ -78,6 +79,14 @@ const items: NavItem[] = [
     visibleTo: can.viewReports,
   },
   {
+    href: "/tenancy",
+    label: "Tenancy",
+    icon: Building2,
+    match: (p) => p.startsWith("/tenancy"),
+    showOnMobile: true,
+    visibleTo: can.viewTenancy,
+  },
+  {
     href: "/settings",
     label: "Settings",
     icon: Settings,
@@ -95,7 +104,7 @@ const sideLinkActive =
   "bg-[var(--color-primary)] text-[var(--color-text-inverse)] shadow-[var(--shadow-sm)]";
 
 const mobileLinkBase =
-  "min-h-[58px] flex flex-col items-center justify-center gap-0.5 rounded-2xl text-[11px] font-bold tracking-[0.02em] transition";
+  "min-h-[58px] px-1 flex flex-col items-center justify-center gap-0.5 rounded-2xl text-[10px] font-bold tracking-tight leading-tight transition";
 const mobileLinkInactive = "text-[var(--color-text-muted)]";
 const mobileLinkActive =
   "bg-[var(--color-primary)] text-[var(--color-text-inverse)] shadow-[var(--shadow-sm)]";
@@ -198,7 +207,7 @@ export function BottomNav() {
                 )}
               >
                 <Icon size={20} />
-                <span>{item.label}</span>
+                <span className="truncate max-w-full">{item.label}</span>
               </Link>
             );
           })}

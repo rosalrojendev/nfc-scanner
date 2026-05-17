@@ -45,14 +45,14 @@ export function Segmented<T extends string>({
             aria-selected={active}
             onClick={() => onChange(opt.value)}
             className={cn(
-              "flex-1 min-h-[44px] px-3 rounded-full text-sm font-bold transition-all duration-200 will-change-transform inline-flex items-center justify-center gap-1.5",
+              "flex-1 basis-0 min-w-0 h-[44px] px-3 rounded-full text-sm font-bold transition-colors duration-200 inline-flex items-center justify-center gap-1.5 overflow-hidden",
               active
-                ? "bg-[var(--color-primary)] text-[var(--color-text-inverse)] shadow-[var(--shadow-md)] ring-2 ring-[color-mix(in_srgb,var(--color-primary)_45%,transparent)] ring-offset-2 ring-offset-[var(--color-surface)] scale-[1.02]"
+                ? "bg-[var(--color-primary)] text-[var(--color-text-inverse)] shadow-[var(--shadow-md)]"
                 : "text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface)]",
             )}
           >
             {Icon ? <Icon size={16} aria-hidden /> : null}
-            <span>{opt.label}</span>
+            <span className="truncate">{opt.label}</span>
           </button>
         );
       })}

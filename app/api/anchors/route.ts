@@ -12,13 +12,17 @@ import { anchorCreateSchema } from "@/lib/validation";
 
 export const runtime = "nodejs";
 
-export async function GET() {
+export async function GET(req: Request) {
   const session = await getSession();
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const projectIds = await getAccessibleProjectIds(session);
-  return NextResponse.json({ anchors: await listAnchors({ projectIds }) });
+  const includeDeleted =
+    new URL(req.url).searchParams.get("with_deleted") === "1";
+  return NextResponse.json({
+    anchors: await listAnchors({ projectIds, includeDeleted }),
+  });
 }
 
 export async function POST(req: Request) {

@@ -36,7 +36,6 @@ async function bootstrap(): Promise<void> {
   bootstrapping ??= (async () => {
     try {
       await refetch();
-      bootstrapped = true;
     } finally {
       bootstrapping = null;
     }
@@ -51,6 +50,7 @@ export async function refetch(): Promise<void> {
     if (!r.ok) return;
     const j = (await r.json()) as { buildings: Building[] };
     cache = j.buildings;
+    bootstrapped = true;
     notify();
   });
 }
@@ -61,6 +61,17 @@ export function getBuildings(): Building[] {
 
 export function useBuildings(): Building[] {
   return useSyncExternalStore(subscribe, getBuildings, () => FROZEN_EMPTY);
+}
+
+function getLoaded(): boolean {
+  return bootstrapped;
+}
+
+// True once the first /api/buildings fetch has completed. Consumers should
+// render skeleton placeholders while false to avoid showing "0 buildings"
+// before real data arrives.
+export function useBuildingsLoaded(): boolean {
+  return useSyncExternalStore(subscribe, getLoaded, () => false);
 }
 
 export async function createBuilding(input: {

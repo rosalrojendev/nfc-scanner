@@ -30,6 +30,9 @@ export interface SettingsState {
   shareLinks: ShareLink[];
   myUserId: string | null;
   myAvatarUrl: string | null;
+  // false until the first refetchAll completes — UI should render loading
+  // placeholders instead of treating empty arrays as accurate counts.
+  loaded: boolean;
 }
 
 const EMPTY: SettingsState = Object.freeze({
@@ -42,6 +45,7 @@ const EMPTY: SettingsState = Object.freeze({
   shareLinks: Object.freeze([]) as unknown as ShareLink[],
   myUserId: null,
   myAvatarUrl: null,
+  loaded: false,
 }) as SettingsState;
 
 let state: SettingsState = EMPTY;
@@ -144,6 +148,7 @@ export async function refetchAll(): Promise<void> {
       : EMPTY.reminders,
     myUserId: rawMe?.userId ?? null,
     myAvatarUrl: rawMe?.prefs.avatarUrl ?? null,
+    loaded: true,
   };
   notify();
 }

@@ -13,6 +13,7 @@ import { loginSchema } from "@/lib/validation";
 import type { Role } from "@/lib/types";
 import { ShieldCheck, Sparkles } from "lucide-react";
 import { ROLE_META } from "@/lib/role-meta";
+import { ThemeToggle } from "@/components/shell/theme-toggle";
 
 const roleOptions = (Object.keys(ROLE_META) as Role[]).map((r) => ({
   value: r,
@@ -119,7 +120,7 @@ export function LoginClient({ nextPath }: { nextPath: string }) {
           aria-hidden
         >
           <Image
-            src="/kra-logo.png"
+            src="/anchor-tag.png"
             alt=""
             fill
             sizes="48px"
@@ -127,14 +128,15 @@ export function LoginClient({ nextPath }: { nextPath: string }) {
             className="object-cover"
           />
         </div>
-        <div className="leading-tight">
+        <div className="leading-tight flex-1 min-w-0">
           <strong className="block text-base tracking-tight">
             Anchor Tag Pro
           </strong>
           <span className="block text-xs text-[var(--color-text-muted)]">
-            Kamloops Rope Access · NFC + QR field app
+            DEMO VER· NFC + QR field app
           </span>
         </div>
+        <ThemeToggle compact />
       </div>
 
       <Eyebrow>Inspector access</Eyebrow>

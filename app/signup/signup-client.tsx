@@ -15,7 +15,7 @@ import { Sparkles, UserPlus, Loader2 } from "lucide-react";
 type Role = "inspector" | "client";
 
 const roleOptions = [
-  { value: "client" as const, label: "Company / org admin" },
+  { value: "client" as const, label: "Company admin" },
   { value: "inspector" as const, label: "Inspector" },
 ];
 
@@ -89,7 +89,7 @@ export function SignupClient() {
           aria-hidden
         >
           <Image
-            src="/kra-logo.png"
+            src="/anchor-tag.png"
             alt=""
             fill
             sizes="44px"
@@ -134,7 +134,7 @@ export function SignupClient() {
             id="su-name"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="e.g. Justin Kamata"
+            placeholder="e.g. John Doe"
             autoComplete="name"
           />
           <FieldError message={errors.name} />
