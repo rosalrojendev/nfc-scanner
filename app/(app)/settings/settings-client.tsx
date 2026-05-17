@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { resetServerStore } from "@/lib/store";
 import { useToast } from "@/components/ui/toast";
 import { ThemeToggle } from "@/components/shell/theme-toggle";
+import { PaletteToggle } from "@/components/shell/palette-toggle";
 import {
   RotateCcw,
   ShieldCheck,
@@ -262,6 +263,17 @@ export function SettingsClient() {
           <ThemeToggle />
           <p className="text-sm text-[var(--color-text-muted)]">
             Dark mode is recommended for sun-bright roof conditions.
+          </p>
+        </div>
+        <div className="grid gap-2">
+          <span className="text-xs uppercase tracking-wider text-[var(--color-text-muted)] font-semibold">
+            Brand palette
+          </span>
+          <PaletteToggle />
+          <p className="text-xs text-[var(--color-text-muted)]">
+            <strong>Anchor</strong> is the current steel-teal branding.{" "}
+            <strong>Classic</strong> restores the warm cream + orange Kamloops
+            Rope Access palette.
           </p>
         </div>
       </Card>

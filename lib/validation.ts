@@ -71,6 +71,9 @@ export const anchorPatchSchema = z.object({
   building: z.string().min(1).max(120).optional(),
   location: z.string().min(1).max(160).optional(),
   drawing: z.string().min(1).max(120).optional(),
+  // Free-text identifier for the physical NFC chip (serial / sticker label).
+  // Accept empty string to mean "clear" — stored as null on the server.
+  nfcTag: z.string().max(120).optional(),
 });
 
 export type AnchorPatchInput = z.infer<typeof anchorPatchSchema>;

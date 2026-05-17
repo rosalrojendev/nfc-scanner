@@ -55,6 +55,45 @@
   --shadow-lg: 0 24px 56px rgba(0, 0, 0, 0.48);
 }
 
+/*
+  KRA classic palette — the warm-cream + orange branding that preceded the
+  Anchor Tag rebrand. Selected via [data-palette="kra"] on <html>. Both light
+  and dark variants override only the palette-specific tokens so the rest of
+  the design system (shadows, success/warning/error semantics) stays consistent.
+*/
+[data-palette="kra"][data-theme="light"],
+:root[data-palette="kra"]:not([data-theme="dark"]) {
+  --color-bg: #f6f4ee;
+  --color-surface: #fbfaf6;
+  --color-surface-2: #ffffff;
+  --color-surface-offset: #ece8df;
+  --color-border: rgba(28, 36, 50, 0.1);
+  --color-divider: #d8d3c8;
+  --color-text: #1c2432;
+  --color-text-muted: #5b6473;
+  --color-text-faint: #8e95a2;
+  --color-text-inverse: #fbfaf6;
+  --color-primary: #d96030;
+  --color-primary-hover: #b94d22;
+  --color-primary-highlight: #fde2d4;
+}
+
+[data-palette="kra"][data-theme="dark"] {
+  --color-bg: #131820;
+  --color-surface: #1a2029;
+  --color-surface-2: #212834;
+  --color-surface-offset: #2a3240;
+  --color-border: rgba(220, 225, 235, 0.1);
+  --color-divider: #2d3441;
+  --color-text: #e6e7eb;
+  --color-text-muted: #a8aebb;
+  --color-text-faint: #717685;
+  --color-text-inverse: #131820;
+  --color-primary: #ee7d4a;
+  --color-primary-hover: #ff945e;
+  --color-primary-highlight: #3a2620;
+}
+
 @theme inline {
   --color-bg: var(--color-bg);
   --color-surface: var(--color-surface);

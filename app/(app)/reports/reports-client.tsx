@@ -9,7 +9,7 @@ import { useToast } from "@/components/ui/toast";
 import { useAnchors, useInspections, useStoreLoaded } from "@/lib/store";
 import { useProjectContext } from "@/components/shell/project-provider";
 import { formatDate, daysUntil } from "@/lib/utils";
-import { FileText, Mail, Download, Eye } from "lucide-react";
+import { FileText, Mail, Download, Eye, Loader2 } from "lucide-react";
 import { useSession } from "@/components/shell/session-provider";
 import { can } from "@/lib/permissions";
 import type { Anchor, Inspection } from "@/lib/types";
@@ -190,41 +190,114 @@ export function ReportsClient() {
     notify("CSV exported.", "success");
   }
 
-  function emailReport(report: DynamicReport) {
-    // mailto can't carry attachments cross-client, so we download the CSV
-    // and pre-fill the message body with instructions to attach it. Opens
-    // whatever default mail client the user has (Gmail web handler, Mail.app,
-    // Outlook, etc.).
-    const filename = downloadCSV(report);
-    const today = formatDate(new Date());
-    const subject = encodeURIComponent(`${report.title} — ${today}`);
-    const projectLine = currentProject ? `Project: ${currentProject.name}\n` : "";
-    const summaryLines = [
-      `Building: ${report.building ?? "All buildings"}`,
-      `Anchors: ${report.anchorCount}`,
-      `Inspections logged: ${report.inspectionCount}`,
-      ...(report.overdueCount > 0
-        ? [`Overdue: ${report.overdueCount}`]
-        : []),
-      ...(report.dueCount > 0
-        ? [`Due in next 30 days: ${report.dueCount}`]
-        : []),
-    ].join("\n");
-    const body = encodeURIComponent(
-      `Hi,\n\n` +
-        `Attached is the ${report.title}.\n\n` +
-        projectLine +
-        summaryLines +
-        `\n\n` +
-        `The CSV file "${filename}" has been downloaded to your device — ` +
-        `please attach it to this email before sending. (Browsers can't pre-attach files to mailto links.)\n\n` +
-        `Best,\n${session.name}`,
-    );
-    window.location.assign(`mailto:?subject=${subject}&body=${body}`);
-    notify(
-      "Mail composer opened. Attach the downloaded CSV before sending.",
-      "success",
-    );
+  const [pdfBusyId, setPdfBusyId] = React.useState<string | null>(null);
+  const [emailBusyId, setEmailBusyId] = React.useState<string | null>(null);
+
+  // Generate the polished PDF blob for a report. Shared by the Download PDF
+  // and Email client flows so we never re-implement the layout in two places.
+  async function buildReportPdfBlob(report: DynamicReport): Promise<Blob> {
+    // Dynamic import keeps the ~250kb react-pdf bundle out of the main
+    // payload — only loads when a user first clicks Download PDF or Email.
+    const [{ pdf }, { ReportPdfDocument }] = await Promise.all([
+      import("@react-pdf/renderer"),
+      import("@/components/reports/report-pdf"),
+    ]);
+    const scopedInspections = inspectionsForReport(report);
+    const scopedAnchors = report.building
+      ? anchors.filter((a) => a.building === report.building)
+      : anchors;
+    return await pdf(
+      <ReportPdfDocument
+        title={report.title}
+        scopeLabel={report.building ?? "All buildings"}
+        project={currentProject}
+        anchors={scopedAnchors}
+        inspections={scopedInspections}
+        generatedAt={new Date()}
+        generatedByName={session.name}
+      />,
+    ).toBlob();
+  }
+
+  function pdfFilename(report: DynamicReport): string {
+    return csvFilename(report).replace(/\.csv$/, ".pdf");
+  }
+
+  function triggerBlobDownload(blob: Blob, filename: string) {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  async function downloadPDF(report: DynamicReport) {
+    setPdfBusyId(report.id);
+    try {
+      const blob = await buildReportPdfBlob(report);
+      triggerBlobDownload(blob, pdfFilename(report));
+      notify("PDF exported.", "success");
+    } catch (e) {
+      notify(e instanceof Error ? e.message : "PDF generation failed.", "error");
+    } finally {
+      setPdfBusyId(null);
+    }
+  }
+
+  async function emailReport(report: DynamicReport) {
+    // mailto can't carry attachments cross-client, so we generate the polished
+    // PDF, download it to the user's device, then open their mail client with
+    // a pre-filled subject + body that tells them to attach the file. This is
+    // the closest a no-server "share the polished report" flow can get.
+    setEmailBusyId(report.id);
+    try {
+      const blob = await buildReportPdfBlob(report);
+      const filename = pdfFilename(report);
+      triggerBlobDownload(blob, filename);
+
+      const today = formatDate(new Date());
+      const subject = encodeURIComponent(`${report.title} — ${today}`);
+      const projectLine = currentProject
+        ? `Project: ${currentProject.name}\n`
+        : "";
+      const summaryLines = [
+        `Scope: ${report.building ?? "All buildings"}`,
+        `Anchors: ${report.anchorCount}`,
+        `Inspections logged: ${report.inspectionCount}`,
+        ...(report.overdueCount > 0
+          ? [`Overdue: ${report.overdueCount}`]
+          : []),
+        ...(report.dueCount > 0
+          ? [`Due in next 30 days: ${report.dueCount}`]
+          : []),
+      ].join("\n");
+      const body = encodeURIComponent(
+        `Hi,\n\n` +
+          `Attached is the ${report.title}, prepared from the latest field data.\n\n` +
+          projectLine +
+          summaryLines +
+          `\n\n` +
+          `The report PDF "${filename}" has been downloaded to your device — ` +
+          `please attach it to this email before sending. ` +
+          `(Browsers can't pre-attach files to mailto links.)\n\n` +
+          `Best,\n${session.name}`,
+      );
+      window.location.assign(`mailto:?subject=${subject}&body=${body}`);
+      notify(
+        "Mail composer opened. Attach the downloaded PDF before sending.",
+        "success",
+      );
+    } catch (e) {
+      notify(
+        e instanceof Error ? e.message : "Could not prepare report.",
+        "error",
+      );
+    } finally {
+      setEmailBusyId(null);
+    }
   }
 
   const previewReport = reports.find((r) => r.id === previewId) ?? null;
@@ -299,14 +372,38 @@ export function ReportsClient() {
                   <Eye size={16} /> Preview
                 </Button>
                 {canEmail ? (
-                  <Button onClick={() => emailReport(r)}>
-                    <Mail size={16} /> Email client
+                  <Button
+                    onClick={() => emailReport(r)}
+                    disabled={emailBusyId === r.id}
+                  >
+                    {emailBusyId === r.id ? (
+                      <Loader2 size={16} className="animate-spin" />
+                    ) : (
+                      <Mail size={16} />
+                    )}
+                    {emailBusyId === r.id
+                      ? "Preparing PDF…"
+                      : "Email client"}
                   </Button>
                 ) : null}
                 {canExport ? (
-                  <Button onClick={() => exportCSV(r)}>
-                    <Download size={16} /> Export CSV
-                  </Button>
+                  <>
+                    <Button onClick={() => exportCSV(r)}>
+                      <Download size={16} /> Export CSV
+                    </Button>
+                    <Button
+                      variant="primary"
+                      onClick={() => downloadPDF(r)}
+                      disabled={pdfBusyId === r.id}
+                    >
+                      {pdfBusyId === r.id ? (
+                        <Loader2 size={16} className="animate-spin" />
+                      ) : (
+                        <FileText size={16} />
+                      )}
+                      {pdfBusyId === r.id ? "Building PDF…" : "Download PDF"}
+                    </Button>
+                  </>
                 ) : null}
               </div>
             </article>
@@ -355,12 +452,27 @@ export function ReportsClient() {
             <div className="flex justify-end gap-2">
               <Button onClick={() => setPreviewId(null)}>Close</Button>
               {canExport ? (
-                <Button
-                  variant="primary"
-                  onClick={() => exportCSV(previewReport)}
-                >
-                  <Download size={16} /> Export
-                </Button>
+                <>
+                  <Button onClick={() => exportCSV(previewReport)}>
+                    <Download size={16} /> CSV
+                  </Button>
+                  {previewReport ? (
+                    <Button
+                      variant="primary"
+                      onClick={() => downloadPDF(previewReport)}
+                      disabled={pdfBusyId === previewReport.id}
+                    >
+                      {pdfBusyId === previewReport.id ? (
+                        <Loader2 size={16} className="animate-spin" />
+                      ) : (
+                        <FileText size={16} />
+                      )}
+                      {pdfBusyId === previewReport.id
+                        ? "Building PDF…"
+                        : "PDF"}
+                    </Button>
+                  ) : null}
+                </>
               ) : null}
             </div>
           </>

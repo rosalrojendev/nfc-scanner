@@ -22,10 +22,18 @@ export default async function LoginPage({
   }
 
   return (
-    <div className="min-h-screen flex items-stretch justify-center px-4 py-8 sm:items-center bg-[var(--color-bg)]">
+    <div className="min-h-screen flex flex-col items-center justify-center gap-6 px-4 py-8 bg-[var(--color-bg)]">
       <Suspense fallback={null}>
         <LoginClient nextPath={params.next || "/dashboard"} />
       </Suspense>
+      <footer
+        className="text-xs text-[var(--color-text-faint)] text-center"
+        style={{
+          paddingBottom: "calc(env(safe-area-inset-bottom) + 0.25rem)",
+        }}
+      >
+        © 2026 Rojen Rosal Dev. All Rights Reserved.
+      </footer>
     </div>
   );
 }
