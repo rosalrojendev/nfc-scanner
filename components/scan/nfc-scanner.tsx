@@ -178,7 +178,7 @@ export function NfcScanner({ onResult }: NfcScannerProps) {
           {supported === null
             ? "Checking support…"
             : isIOS
-              ? "iOS Safari does not expose Web NFC. Use the QR camera tab below, or open this app on Android Chrome."
+              ? "iOS Safari does not expose Web NFC. Use the QR camera, or open this app on Android Chrome."
               : supported
                 ? "Supported on this device. Press Start NFC and tap the anchor."
                 : "Web NFC is not supported in this browser. Use Chrome on Android over HTTPS, or fall back to QR."}

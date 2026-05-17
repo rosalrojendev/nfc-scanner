@@ -15,7 +15,6 @@ import {
   createInspection,
   updateInspection,
   useAnchors,
-  getAnchor,
 } from "@/lib/store";
 import { inspectionInputSchema } from "@/lib/validation";
 import { timestampFilename } from "@/lib/utils";
@@ -23,9 +22,7 @@ import { useSettings } from "@/lib/settings-store";
 import { useSession } from "@/components/shell/session-provider";
 import { useProjectContext } from "@/components/shell/project-provider";
 import type { Inspection, InspectionResult } from "@/lib/types";
-import { ClipboardCheck, Save, X, Loader2 } from "lucide-react";
-import { NfcWriter } from "@/components/scan/nfc-writer";
-import { buildPayload } from "@/lib/nfc-payload";
+import { Save, X, Loader2 } from "lucide-react";
 import { uploadFiles } from "@/lib/uploadthing";
 
 async function dataUrlToFile(
@@ -117,8 +114,6 @@ export function InspectionFormClient() {
     return emptyDraft(presetAnchor, defaultInspectorName(inspectorRoster));
   });
   const [errors, setErrors] = React.useState<Record<string, string>>({});
-  const [savedInspection, setSavedInspection] =
-    React.useState<Inspection | null>(null);
   const [submitting, setSubmitting] = React.useState(false);
 
   function update<K extends keyof Inspection>(key: K, value: Inspection[K]) {
@@ -158,21 +153,18 @@ export function InspectionFormClient() {
           // Fall through with the data URL if upload fails.
         }
       }
-      const saved = editingId
-        ? await updateInspection(editingId, payload)
-        : await createInspection(payload);
-      setSavedInspection(saved);
+      if (editingId) {
+        await updateInspection(editingId, payload);
+      } else {
+        await createInspection(payload);
+      }
       notify(
         editingId
           ? "Inspection updated. Anchor record refreshed."
           : "Inspection saved. Next retest date updated.",
         "success",
       );
-      if (editingId) {
-        router.push(`/anchors/${encodeURIComponent(payload.anchorId)}`);
-      } else {
-        router.push("/inspections");
-      }
+      router.push(`/anchors/${encodeURIComponent(payload.anchorId)}`);
       router.refresh();
     } catch (err) {
       notify(err instanceof Error ? err.message : "Save failed.", "error");
@@ -180,14 +172,6 @@ export function InspectionFormClient() {
       setSubmitting(false);
     }
   }
-
-  function finishAndOpenAnchor() {
-    router.push(`/anchors/${encodeURIComponent(draft.anchorId)}`);
-  }
-
-  const savedAnchor = savedInspection
-    ? getAnchor(savedInspection.anchorId)
-    : null;
 
   const anchorExists = anchors.some(
     (a) => a.id.toLowerCase() === draft.anchorId.toLowerCase(),
@@ -355,32 +339,6 @@ export function InspectionFormClient() {
         </form>
       </Card>
 
-      {savedInspection && savedAnchor ? (
-        <Card>
-          <div>
-            <Eyebrow>Saved</Eyebrow>
-            <h2 className="text-lg font-semibold tracking-tight mt-1">
-              Update the NFC tag with this inspection?
-            </h2>
-            <p className="text-sm text-[var(--color-text-muted)] mt-1">
-              Encodes asset ID, inspector, timestamp, status, and a short
-              note. Photos remain in cloud storage and are linked from the
-              anchor record.
-            </p>
-          </div>
-          <NfcWriter
-            payload={buildPayload({
-              anchor: savedAnchor,
-              inspection: savedInspection,
-            })}
-          />
-          <div className="flex flex-wrap gap-2 justify-end">
-            <Button onClick={finishAndOpenAnchor}>Skip — open anchor</Button>
-          </div>
-        </Card>
-      ) : null}
-
-    
     </>
   );
 }
