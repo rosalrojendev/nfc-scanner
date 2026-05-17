@@ -42,10 +42,17 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   // @react-pdf/renderer pulls in the Node-only `canvas` package as a
   // fallback even though the browser provides `window.HTMLCanvasElement`
-  // natively. Aliasing `canvas: false` tells webpack to drop the package
-  // from the production bundle; without this, the deployed build silently
+  // natively. Aliasing `canvas` to an empty stub drops the package from
+  // the production bundle; without this, the deployed build silently
   // includes the Node canvas binding which fails to load at runtime and
   // breaks every pdf().toBlob() call (plate PDFs + report PDFs).
+  // Next.js 16 defaults to Turbopack, so the alias must be set there;
+  // the webpack entry is kept for `--webpack` fallback builds.
+  turbopack: {
+    resolveAlias: {
+      canvas: "./lib/empty-canvas-stub.js",
+    },
+  },
   webpack: (config) => {
     config.resolve = config.resolve ?? {};
     config.resolve.alias = {
