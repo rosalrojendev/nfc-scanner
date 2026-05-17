@@ -57,7 +57,7 @@ export function TopBar({ user }: { user: SessionUser }) {
         paddingRight: "0.75rem",
       }}
     >
-      <div className="flex items-center justify-between gap-2 sm:gap-3">
+      <div className="flex items-center justify-between gap-1.5 sm:gap-3">
         <Link
           href="/dashboard"
           className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1"

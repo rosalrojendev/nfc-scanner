@@ -23,17 +23,17 @@ export function ProjectSwitcher() {
   if (onlyOne) {
     return (
       <span
-        className="inline-flex items-center gap-1.5 text-xs font-semibold px-2 py-1 rounded-full bg-[var(--color-surface-2)] border border-[var(--color-border)] text-[var(--color-text-muted)]"
+        className="inline-flex items-center gap-1.5 text-xs font-semibold px-1.5 sm:px-2 py-1 rounded-full bg-[var(--color-surface-2)] border border-[var(--color-border)] text-[var(--color-text-muted)]"
         aria-label={`Current project: ${currentProject?.name ?? ""}`}
       >
         <Building2 size={12} />
-        <span className="truncate max-w-[12ch]">{currentProject?.name}</span>
+        <span className="truncate max-w-[8ch] sm:max-w-[12ch]">{currentProject?.name}</span>
       </span>
     );
   }
 
   return (
-    <label className="relative inline-flex items-center gap-1.5 text-xs font-semibold px-2 py-1 rounded-full bg-[var(--color-surface-2)] border border-[var(--color-border)]">
+    <label className="relative inline-flex items-center gap-1.5 text-xs font-semibold px-1.5 sm:px-2 py-1 rounded-full bg-[var(--color-surface-2)] border border-[var(--color-border)]">
       <Building2 size={12} aria-hidden />
       <span className="sr-only">Current project</span>
       <select
@@ -41,7 +41,7 @@ export function ProjectSwitcher() {
         onChange={(e) => {
           if (e.target.value) void setCurrentProject(e.target.value);
         }}
-        className="appearance-none bg-transparent border-none outline-none pr-3 cursor-pointer text-[var(--color-text)] max-w-[14ch] truncate"
+        className="appearance-none bg-transparent border-none outline-none pr-3 cursor-pointer text-[var(--color-text)] max-w-[8ch] sm:max-w-[14ch] truncate"
       >
         {grouped.length === 1 ? (
           grouped[0].projects.map((p) => (
