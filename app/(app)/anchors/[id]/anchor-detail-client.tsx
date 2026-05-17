@@ -35,6 +35,7 @@ import {
 } from "lucide-react";
 import type { Anchor } from "@/lib/types";
 import { NfcWriter } from "@/components/scan/nfc-writer";
+import { AnchorQrPanel } from "@/components/anchors/anchor-qr-panel";
 import { buildPayload } from "@/lib/nfc-payload";
 import { SubmittedByChip } from "@/components/submitted-by";
 import { InspectorTag } from "@/components/inspector-tag";
@@ -71,6 +72,9 @@ export function AnchorDetailClient({ id }: { id: string }) {
   const [deleteOpen, setDeleteOpen] = React.useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = React.useState("");
   const [deleting, setDeleting] = React.useState(false);
+  const [serialOpen, setSerialOpen] = React.useState(false);
+  const [serialDraft, setSerialDraft] = React.useState("");
+  const [savingSerial, setSavingSerial] = React.useState(false);
   const confirmTokenNormalized = (anchor?.id ?? "").trim().toLowerCase();
   const canConfirmDelete =
     confirmTokenNormalized.length > 0 &&
@@ -115,6 +119,7 @@ export function AnchorDetailClient({ id }: { id: string }) {
       building: anchor!.building,
       location: anchor!.location,
       drawing: anchor!.drawing,
+      nfcTag: anchor!.nfcTag ?? "",
     });
     setEditOpen(true);
   }
@@ -127,6 +132,7 @@ export function AnchorDetailClient({ id }: { id: string }) {
         building: draft.building,
         location: draft.location,
         drawing: draft.drawing,
+        nfcTag: draft.nfcTag,
       });
       setEditOpen(false);
       notify("Anchor updated.", "success");
@@ -138,6 +144,37 @@ export function AnchorDetailClient({ id }: { id: string }) {
   function openDeleteDialog() {
     setDeleteConfirmText("");
     setDeleteOpen(true);
+  }
+
+  function handleNfcWritten() {
+    // Only nudge the user to save a serial if we don't already have one.
+    // Idea is to capture the printed sticker label once, never again.
+    if (anchor && !anchor.nfcTag) {
+      setSerialDraft("");
+      setSerialOpen(true);
+    }
+  }
+
+  async function saveSerial() {
+    if (!anchor) return;
+    const trimmed = serialDraft.trim();
+    if (!trimmed) {
+      setSerialOpen(false);
+      return;
+    }
+    setSavingSerial(true);
+    try {
+      await patchAnchor(anchor.id, { nfcTag: trimmed });
+      notify(`Chip serial saved for ${anchor.id}.`, "success");
+      setSerialOpen(false);
+    } catch (e) {
+      notify(
+        e instanceof Error ? e.message : "Could not save chip serial.",
+        "error",
+      );
+    } finally {
+      setSavingSerial(false);
+    }
   }
 
   async function handleDelete() {
@@ -270,9 +307,14 @@ export function AnchorDetailClient({ id }: { id: string }) {
               anchor,
               inspection: history[0] ?? null,
             })}
+            onWritten={handleNfcWritten}
           />
         </Card>
       ) : null}
+
+      <Card>
+        <AnchorQrPanel anchor={anchor} />
+      </Card>
 
       <Card>
         <div className="flex items-start justify-between gap-3">
@@ -427,6 +469,27 @@ export function AnchorDetailClient({ id }: { id: string }) {
               }
             />
           </Field>
+          <Field>
+            <Label htmlFor="anchor-nfctag">
+              NFC chip serial{" "}
+              <span className="text-[var(--color-text-muted)] font-normal">
+                (optional)
+              </span>
+            </Label>
+            <Input
+              id="anchor-nfctag"
+              value={draft.nfcTag || ""}
+              onChange={(e) => setDraft({ ...draft, nfcTag: e.target.value })}
+              placeholder="e.g. NFC-RA-03-BC"
+              autoComplete="off"
+              spellCheck={false}
+              autoCapitalize="off"
+            />
+            <p className="text-xs text-[var(--color-text-muted)]">
+              Serial printed on the physical chip / sticker. Lets scans of the
+              raw serial resolve to this anchor.
+            </p>
+          </Field>
         </div>
         <div className="flex flex-wrap gap-2 justify-end">
           <Button onClick={() => setEditOpen(false)}>Cancel</Button>
@@ -509,6 +572,61 @@ export function AnchorDetailClient({ id }: { id: string }) {
           >
             <Trash2 size={16} />
             {deleting ? "Deleting…" : "Delete permanently"}
+          </Button>
+        </div>
+      </Dialog>
+
+      <Dialog
+        open={serialOpen}
+        onClose={() => (savingSerial ? undefined : setSerialOpen(false))}
+        ariaLabel="Save NFC chip serial"
+      >
+        <Eyebrow>NFC chip</Eyebrow>
+        <h3 className="text-lg font-semibold tracking-tight">
+          Tag written — save the chip serial?
+        </h3>
+        <p className="text-sm text-[var(--color-text-muted)]">
+          Recording the serial on the sticker label lets a scanner reading the
+          raw serial number resolve to {anchor.id}. Optional — skip if you
+          don&apos;t have a printed serial.
+        </p>
+        <Field>
+          <Label htmlFor="anchor-serial">Chip serial</Label>
+          <Input
+            id="anchor-serial"
+            value={serialDraft}
+            onChange={(e) => setSerialDraft(e.target.value)}
+            placeholder="e.g. NFC-RA-03-BC"
+            autoComplete="off"
+            spellCheck={false}
+            autoCapitalize="off"
+            autoFocus
+            disabled={savingSerial}
+            onKeyDown={(e) => {
+              if (
+                e.key === "Enter" &&
+                serialDraft.trim().length > 0 &&
+                !savingSerial
+              ) {
+                e.preventDefault();
+                void saveSerial();
+              }
+            }}
+          />
+        </Field>
+        <div className="flex flex-wrap gap-2 justify-end">
+          <Button
+            onClick={() => setSerialOpen(false)}
+            disabled={savingSerial}
+          >
+            Skip
+          </Button>
+          <Button
+            variant="primary"
+            onClick={saveSerial}
+            disabled={!serialDraft.trim() || savingSerial}
+          >
+            {savingSerial ? "Saving…" : "Save serial"}
           </Button>
         </div>
       </Dialog>

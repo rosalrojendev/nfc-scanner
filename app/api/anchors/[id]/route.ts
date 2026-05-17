@@ -59,7 +59,15 @@ export async function PATCH(
       { status: 400 },
     );
   }
-  const updated = await upsertAnchor({ ...anchor, ...parsed.data });
+  // Empty nfcTag string from the form means "clear it" — normalise to
+  // undefined so upsertAnchor stamps the column to null.
+  const normalised = {
+    ...parsed.data,
+    ...(parsed.data.nfcTag === ""
+      ? { nfcTag: undefined }
+      : {}),
+  };
+  const updated = await upsertAnchor({ ...anchor, ...normalised });
   return NextResponse.json({ anchor: updated });
 }
 

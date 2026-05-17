@@ -81,9 +81,11 @@ export function ScanClient() {
             Identify an anchor by NFC, QR, or ID
           </h1>
           <p className="text-sm text-[var(--color-text-muted)] mt-1">
-            NFC tags carry lightweight metadata only (asset ID, last inspector,
-            timestamp, status, notes). Photos live in cloud storage and are
-            shown as clickable links.
+            NFC tags default to a URL only ({" "}<code>/anchors/&lt;id&gt;</code>{" "})
+            so they fit even on small NTAG213 stickers; the writer can
+            optionally embed a metadata snapshot (last inspector, timestamp,
+            status, building, drawing, notes). Photos and signatures stay in
+            cloud storage and are shown as clickable links.
           </p>
         </div>
         <Segmented<Mode>

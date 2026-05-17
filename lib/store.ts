@@ -144,7 +144,9 @@ export async function createAnchor(payload: {
 
 export async function patchAnchor(
   id: string,
-  patch: Partial<Pick<Anchor, "label" | "building" | "location" | "drawing">>,
+  patch: Partial<
+    Pick<Anchor, "label" | "building" | "location" | "drawing" | "nfcTag">
+  >,
 ): Promise<Anchor> {
   const r = await fetch(`/api/anchors/${encodeURIComponent(id)}`, {
     method: "PATCH",

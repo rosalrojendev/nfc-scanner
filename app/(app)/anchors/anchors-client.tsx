@@ -324,7 +324,7 @@ function AnchorRow({
 
         <ChevronRight
           size={20}
-          className="shrink-0 text-[var(--color-text-faint)] transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-[var(--color-primary)]"
+          className="shrink-0 text-text-faint transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-primary"
           aria-hidden
         />
       </article>

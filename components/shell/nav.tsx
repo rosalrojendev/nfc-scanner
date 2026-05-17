@@ -115,7 +115,7 @@ export function SideNav() {
   const visibleItems = items.filter((i) => i.visibleTo(session.role));
   return (
     <aside
-      className="hidden lg:grid content-start gap-2 p-4 border-r border-[var(--color-border)] bg-[var(--color-surface)]"
+      className="hidden lg:flex flex-col gap-2 p-4 border-r border-[var(--color-border)] bg-[var(--color-surface)]"
       aria-label="Primary navigation"
     >
       {visibleItems.map((item) => {
@@ -136,6 +136,11 @@ export function SideNav() {
           </Link>
         );
       })}
+      <footer className="mt-auto pt-4 text-[10px] text-center text-[var(--color-text-faint)] leading-snug">
+        © 2026 Rojen Rosal Dev.
+        <br />
+        All Rights Reserved.
+      </footer>
     </aside>
   );
 }
@@ -266,6 +271,9 @@ export function BottomNav() {
             );
           })}
         </div>
+        <p className="text-[11px] text-center text-[var(--color-text-faint)] mt-2">
+          © 2026 Rojen Rosal Dev. All Rights Reserved.
+        </p>
       </Dialog>
     </>
   );

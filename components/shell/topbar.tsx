@@ -5,6 +5,8 @@ import Link from "next/link";
 import Image from "next/image";
 import { ScanLine, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Dialog } from "@/components/ui/dialog";
+import { Eyebrow } from "@/components/ui/card";
 import { ThemeToggle } from "./theme-toggle";
 import { useRouter } from "next/navigation";
 import type { SessionUser } from "@/lib/types";
@@ -22,13 +24,29 @@ export function TopBar({ user }: { user: SessionUser }) {
   const settings = useSettings();
   const myAvatar = avatarFor(user.id, user.name, settings);
 
-  async function logout() {
-    await fetch("/api/auth/logout", { method: "POST" });
-    router.replace("/login");
-    router.refresh();
+  const [logoutOpen, setLogoutOpen] = React.useState(false);
+  const [loggingOut, setLoggingOut] = React.useState(false);
+
+  async function confirmLogout() {
+    setLoggingOut(true);
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+      router.replace("/login");
+      router.refresh();
+    } catch {
+      // Network hiccup — push to /login anyway so the user isn't stuck;
+      // the session cookie may already be cleared.
+      router.replace("/login");
+    } finally {
+      // Don't reset state — the page is unmounting on success. Only matters
+      // if the user opens the dialog again on the same render.
+      setLoggingOut(false);
+      setLogoutOpen(false);
+    }
   }
 
   return (
+    <>
     <header
       className="sticky top-0 z-40 border-b border-[var(--color-border)] backdrop-blur-md"
       style={{
@@ -116,7 +134,7 @@ export function TopBar({ user }: { user: SessionUser }) {
           <Button
             variant="default"
             size="icon"
-            onClick={logout}
+            onClick={() => setLogoutOpen(true)}
             aria-label="Sign out"
           >
             <LogOut size={18} />
@@ -124,5 +142,39 @@ export function TopBar({ user }: { user: SessionUser }) {
         </div>
       </div>
     </header>
+
+      <Dialog
+        open={logoutOpen}
+        onClose={() => (loggingOut ? undefined : setLogoutOpen(false))}
+        ariaLabel="Confirm sign out"
+        placement="center"
+      >
+        <Eyebrow>Session</Eyebrow>
+        <h3 className="text-lg font-semibold tracking-tight inline-flex items-center gap-2">
+          <LogOut size={18} aria-hidden /> Sign out of Anchor Tag Pro?
+        </h3>
+        <p className="text-sm text-[var(--color-text-muted)]">
+          You&apos;ll be signed out as <strong>{user.name}</strong>. Any
+          unsaved changes in open dialogs will be lost. You can sign back in
+          anytime.
+        </p>
+        <div className="flex flex-wrap gap-2 justify-end">
+          <Button
+            onClick={() => setLogoutOpen(false)}
+            disabled={loggingOut}
+          >
+            Stay signed in
+          </Button>
+          <Button
+            variant="primary"
+            onClick={confirmLogout}
+            disabled={loggingOut}
+          >
+            <LogOut size={16} />
+            {loggingOut ? "Signing out…" : "Sign out"}
+          </Button>
+        </div>
+      </Dialog>
+    </>
   );
 }
