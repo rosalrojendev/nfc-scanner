@@ -264,19 +264,17 @@ export function DrawingsClient() {
       )}
 
       {canUpload ? (
-        <>
-          <UploadDrawingDialog
-            open={uploadOpen}
-            onClose={() => setUploadOpen(false)}
-          />
-          {pinDrawing ? (
-            <PinAnchorDialog
-              drawing={pinDrawing}
-              open={!!pinDrawing}
-              onClose={() => setPinDrawing(null)}
-            />
-          ) : null}
-        </>
+        <UploadDrawingDialog
+          open={uploadOpen}
+          onClose={() => setUploadOpen(false)}
+        />
+      ) : null}
+      {canPin && pinDrawing ? (
+        <PinAnchorDialog
+          drawing={pinDrawing}
+          open={!!pinDrawing}
+          onClose={() => setPinDrawing(null)}
+        />
       ) : null}
     </>
   );
