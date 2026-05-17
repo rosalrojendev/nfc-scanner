@@ -24,6 +24,7 @@ import {
   AlertOctagon,
   Trash2,
   Anchor as AnchorMarkIcon,
+  FolderOpen,
 } from "lucide-react";
 import { useSession } from "@/components/shell/session-provider";
 import { can } from "@/lib/permissions";
@@ -70,7 +71,13 @@ export function DashboardClient() {
   const allAnchorsWithDeleted = useAllAnchors();
   const allInspectionsWithDeleted = useAllInspections();
   const allBuildings = useBuildings();
-  const { currentProjectId } = useProjectContext();
+  const { currentProjectId, currentProject, clients } = useProjectContext();
+  const currentClientName = React.useMemo(() => {
+    if (!currentProject) return null;
+    return (
+      clients.find((c) => c.id === currentProject.clientId)?.name ?? null
+    );
+  }, [currentProject, clients]);
   const storeLoaded = useStoreLoaded();
   const anchors = React.useMemo(
     () =>
@@ -220,7 +227,60 @@ export function DashboardClient() {
   const overdue = anchors.filter(
     (a) => a.nextDue && daysUntil(a.nextDue) < 0,
   ).length;
-  const reportsReady = 8;
+  const dueIn7 = anchors.filter((a) => {
+    if (!a.nextDue) return false;
+    const d = daysUntil(a.nextDue);
+    return d >= 0 && d <= 7;
+  }).length;
+  const inspectionsThisMonth = React.useMemo(() => {
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+    return inspections.filter((i) => {
+      const t = new Date(i.testDate).getTime();
+      return Number.isFinite(t) && t >= monthStart;
+    }).length;
+  }, [inspections]);
+  // Mirrors the reports page logic so the dashboard count never disagrees
+  // with what the user sees on /reports. A report is "ready" when:
+  //   - the scope has at least one inspection logged, AND
+  //   - no anchors are overdue, AND
+  //   - no anchors are due within the next 30 days.
+  // The reports page produces one per-building snapshot (for buildings that
+  // actually contain anchors) PLUS one project-wide "Full inspection log"
+  // when any anchors exist — both are counted here.
+  const reportsReady = React.useMemo(() => {
+    const isReady = (
+      scopedAnchors: typeof anchors,
+      scopedInspections: typeof inspections,
+    ) => {
+      if (scopedAnchors.length === 0) return false;
+      if (scopedInspections.length === 0) return false;
+      const overdueCount = scopedAnchors.filter(
+        (a) => a.nextDue && daysUntil(a.nextDue) < 0,
+      ).length;
+      const dueCount = scopedAnchors.filter((a) => {
+        if (!a.nextDue) return false;
+        const d = daysUntil(a.nextDue);
+        return d >= 0 && d <= 30;
+      }).length;
+      return overdueCount === 0 && dueCount === 0;
+    };
+
+    const buildingNames = Array.from(
+      new Set(anchors.map((a) => a.building).filter(Boolean)),
+    );
+    let ready = 0;
+    for (const b of buildingNames) {
+      const buildingAnchors = anchors.filter((a) => a.building === b);
+      const ids = new Set(buildingAnchors.map((a) => a.id));
+      const buildingInspections = inspections.filter((i) =>
+        ids.has(i.anchorId),
+      );
+      if (isReady(buildingAnchors, buildingInspections)) ready += 1;
+    }
+    if (isReady(anchors, inspections)) ready += 1;
+    return ready;
+  }, [anchors, inspections]);
 
   // Empty state: signed in but not on any project's roster.
   if (!currentProjectId && session.role !== "admin") {
@@ -272,7 +332,39 @@ export function DashboardClient() {
           }}
         />
         <div className="relative grid gap-4">
-          <RolePill />
+          <div className="flex flex-wrap items-center gap-2">
+            <RolePill />
+            {currentProject ? (
+              <span
+                className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium border"
+                style={{
+                  background:
+                    "color-mix(in srgb, var(--color-primary) 12%, transparent)",
+                  borderColor:
+                    "color-mix(in srgb, var(--color-primary) 32%, transparent)",
+                  color: "var(--color-primary)",
+                }}
+                title={
+                  currentClientName
+                    ? `${currentProject.name} · ${currentClientName}`
+                    : currentProject.name
+                }
+              >
+                <FolderOpen size={13} aria-hidden />
+                <span className="truncate max-w-[14ch] sm:max-w-[24ch]">
+                  {currentProject.name}
+                </span>
+                {currentClientName ? (
+                  <span
+                    className="hidden sm:inline opacity-70 font-normal"
+                    aria-label={`Client ${currentClientName}`}
+                  >
+                    · {currentClientName}
+                  </span>
+                ) : null}
+              </span>
+            ) : null}
+          </div>
           <Eyebrow>
             {role === "client"
               ? "Client view"
@@ -287,7 +379,7 @@ export function DashboardClient() {
                 ? "Track inspectors, anchors, drawings, and reports across all buildings."
                 : "Scan tags, log proof tests, and update due dates from the roof."}
           </h1>
-        <p className="text-[var(--color-text-muted)]">
+        <p className="text-text-muted">
           {role === "client"
             ? "You can review anchor status, drawings, and download reports. Editing and scanning are reserved for the inspection team."
             : "Designed for crews on the roof first, with NFC scan entry, QR fallback, building-level drawings, and inspection history tied to every anchor."}
@@ -337,18 +429,64 @@ export function DashboardClient() {
       </Card>
 
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="Buildings" value={buildings} loaded={storeLoaded} />
-        <StatCard
-          label="Inspectors"
-          value={inspectorsCount || 5}
-          loaded={storeLoaded}
-        />
-        <StatCard label="Overdue" value={overdue} loaded={storeLoaded} />
-        <StatCard
-          label="Reports ready"
-          value={reportsReady}
-          loaded={storeLoaded}
-        />
+        {role === "inspector" ? (
+          <>
+            <StatCard label="Overdue" value={overdue} loaded={storeLoaded} />
+            <StatCard
+              label="Due in 7 days"
+              value={dueIn7}
+              loaded={storeLoaded}
+            />
+            <StatCard
+              label="Inspections this month"
+              value={inspectionsThisMonth}
+              loaded={storeLoaded}
+            />
+            <StatCard
+              label="Anchors"
+              value={anchors.length}
+              loaded={storeLoaded}
+            />
+          </>
+        ) : role === "client" ? (
+          <>
+            <StatCard
+              label="Buildings"
+              value={buildings}
+              loaded={storeLoaded}
+            />
+            <StatCard
+              label="Anchors"
+              value={anchors.length}
+              loaded={storeLoaded}
+            />
+            <StatCard label="Overdue" value={overdue} loaded={storeLoaded} />
+            <StatCard
+              label="Reports ready"
+              value={reportsReady}
+              loaded={storeLoaded}
+            />
+          </>
+        ) : (
+          <>
+            <StatCard
+              label="Buildings"
+              value={buildings}
+              loaded={storeLoaded}
+            />
+            <StatCard
+              label="Anchors"
+              value={anchors.length}
+              loaded={storeLoaded}
+            />
+            <StatCard
+              label="Inspectors"
+              value={inspectorsCount}
+              loaded={storeLoaded}
+            />
+            <StatCard label="Overdue" value={overdue} loaded={storeLoaded} />
+          </>
+        )}
       </section>
 
       <section className="grid lg:grid-cols-[1.15fr_0.85fr] gap-4">
@@ -378,12 +516,12 @@ export function DashboardClient() {
               </Link>
             )}
           </div>
-          <p className="text-[var(--color-text-muted)] text-sm">
+          <p className="text-text-muted text-sm">
             {canScan
               ? "The same anchor record can open from NFC, QR code, or a search fallback, so crews still reach the correct asset on any phone."
               : "Inspection teams update anchor records in the field. This view aggregates the latest certification status."}
           </p>
-          <div className="rounded-2xl overflow-hidden border border-[var(--color-border)] bg-[var(--color-surface-2)]">
+          <div className="rounded-2xl overflow-hidden border border-border bg-surface-2">
             <svg viewBox="0 0 760 420" aria-label="Roof plan overview">
               <rect
                 x="30"

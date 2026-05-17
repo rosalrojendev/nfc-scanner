@@ -78,12 +78,27 @@ export function SettingsClient() {
   const shareCount = settings.shareLinks.length;
   const myAvatar = avatarFor(session.id, session.name, settings);
 
+  // Scope to the current project's client so the card matches what the
+  // manage-roster dialog actually shows. The global inspectors list mixes
+  // every client together, which surfaces cross-client duplicates and an
+  // inflated count.
+  const rosterForCurrentClient = React.useMemo(() => {
+    if (!currentProject) return [];
+    const seen = new Set<string>();
+    return settings.inspectors.filter((i) => {
+      if (i.clientId !== currentProject.clientId) return false;
+      if (seen.has(i.userId)) return false;
+      seen.add(i.userId);
+      return true;
+    });
+  }, [settings.inspectors, currentProject]);
+
   const inspectorPreview = React.useMemo(() => {
-    const names = settings.inspectors.map((i) => i.name);
+    const names = rosterForCurrentClient.map((i) => i.name);
     if (names.length === 0) return "No inspectors on the roster.";
     if (names.length <= 4) return names.join(", ") + " — all active.";
     return names.slice(0, 3).join(", ") + `, and ${names.length - 3} more.`;
-  }, [settings.inspectors]);
+  }, [rosterForCurrentClient]);
 
   return (
     <>
@@ -130,7 +145,7 @@ export function SettingsClient() {
                 </strong>
                 {settings.loaded ? (
                   <span className="text-xs font-bold text-[var(--color-text-muted)]">
-                    {settings.inspectors.length}
+                    {rosterForCurrentClient.length}
                   </span>
                 ) : (
                   <span
