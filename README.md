@@ -109,7 +109,10 @@ The **"Try demo bypass"** button on the login page issues a session for the curr
 ### Anchors
 
 - List page with full-text search, status filter, building filter, configurable sort.
+- **Building filter union** — the dropdown merges `anchor.building` strings with the `Building` table, so a building registered in Settings appears immediately even before any anchors are pinned to it.
 - Detail page with metadata, inspection history, NFC writer card, **QR plate** card, edit dialog (label, building, location, drawing, **NFC chip serial**), and a **soft-delete** flow with type-the-ID confirmation.
+- **Installation date** surfaced on the detail page (`anchor.createdAt`), satisfying the marketing PDF's "Installation date and specifications" promise.
+- **Smart "Open drawing" deep-link** — if the anchor is pinned on a drawing, the button hashes directly to that drawing card (`/drawings#drawing-<id>`); falls back to the full library otherwise. Button label flips between **Open drawing** and **Browse drawings** so the destination matches the wording.
 - **Inspection photos gallery** — single collapsible "Visual record" card on the detail page that groups every inspection's photos chronologically (newest first), with the inspection's date + inspector + result pill as the header for each group. Paginates 5 inspections per page once the anchor has more than that.
 - **Full-screen photo lightbox** — clicking any thumbnail opens a portal'd viewer with keyboard navigation, horizontal swipe, photo counter, and a corner "open in new tab" icon. The viewer carries the *whole anchor's* chronological photo set so the user can swipe between inspections to compare states over time.
 - **Soft delete** — `deletedAt` / `deletedBy` columns; deleted records still surface in the activity feed.
@@ -127,6 +130,7 @@ The **"Try demo bypass"** button on the login page issues a session for the curr
 - Upload roof plans (admin/client) — PNG/JPG up to 16 MB or PDF up to 32 MB.
 - **Pin anchors** onto the plan (any role with `pinDrawing`).
 - **Download with pins / Download original** split-button — composites pin markers + IDs onto the original at native resolution and ships a PNG. Available to admin/client/inspector when an image plan is uploaded.
+- **Hash-navigable cards** — each drawing renders with a stable `id="drawing-<id>"` and `scroll-mt-24`, so deep-links from the anchor detail page land precisely on the right card with the sticky topbar already accounted for.
 - Detail-sheet and PDF attachments.
 
 ### Scanning
@@ -151,7 +155,7 @@ The **"Try demo bypass"** button on the login page issues a session for the curr
 ### Dashboard
 
 - Role-aware hero card.
-- Animated counters for buildings / inspectors / overdue / reports ready.
+- Animated counters for buildings / inspectors / overdue / reports ready. **Buildings count** unions distinct `anchor.building` values with the `Building` table, so registering a building in Settings bumps the count immediately even with zero anchors.
 - Re-test queue (anchors due in ≤ 60 days) with status pills.
 - **Recent events feed** that merges three streams: inspection results (created), inspection deletions, and anchor deletions. Each row links to the anchor.
 - **Reminder banner** driven by the user's 60/30/7-day toggles in Settings — surfaces overdue anchors always, plus upcoming ones within the longest enabled window.
@@ -177,6 +181,8 @@ The **"Try demo bypass"** button on the login page issues a session for the curr
 - Centered overlay loader (anchored within the main content region, not the full viewport) for the global fetch indicator.
 - Toast system for success/error feedback.
 - Skeleton placeholders for counts and lists so users don't see "0" while data is in flight.
+- **`loading.tsx` Suspense fallbacks** for the whole authenticated shell (`app/(app)/loading.tsx`) and the anchor detail route (`app/(app)/anchors/[id]/loading.tsx`). Critical for the NFC tag flow: tapping a tag triggers a fresh `/anchors/<id>` navigation, and on a cold serverless function start the page render can take 1–3 seconds. The `loading.tsx` skeleton streams almost immediately so users see the topbar + a credible content skeleton instead of a blank screen while the server resolves auth + Postgres queries.
+- **iOS-friendly date inputs** — `<input type="date">` on iPhone has a long-standing rendering bug where the inner pseudo-element ignores the parent input's line-height and overlaps the native calendar chevron. `app/globals.css` pins `::-webkit-date-and-time-value` line-height and resets `-webkit-appearance` so test-date + next-due-date fields render cleanly in Safari iOS.
 
 ### Internationalization (English + Canadian French)
 
@@ -290,8 +296,13 @@ app/
     admin/                    reset-to-seed (admin only)
   (app)/                      Authenticated app shell
     layout.tsx                Top bar + side nav + bottom nav + global loader
+    loading.tsx               Generic Suspense fallback for any route below
     dashboard/                Hero, reminder banner, stats, due list, activity feed
     anchors/                  list + [id] detail with QR plate + NFC + soft-delete
+      [id]/
+        page.tsx              Server component — auth + anchor lookup
+        anchor-detail-client.tsx
+        loading.tsx           High-fidelity skeleton for the NFC-landing route
     inspections/              list with filters + new (form, edit, photos, signature)
     scan/                     NFC + QR + manual + demo bypass
     drawings/                 plans, clickable pins, attachments, download with pins
