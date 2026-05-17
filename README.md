@@ -29,25 +29,38 @@ A multi-tenant SaaS for **roof-anchor field inspection**. Built mobile-first, ru
 
 ## Getting started
 
-### 1. Install dependencies
+### 1. Get the source code
+
+If you have **git** installed, clone the repository and `cd` into it:
+
+```bash
+git clone <repository URL>
+cd anchortag
+```
+
+If you don't have git, open the repository page in your browser, click the green **Code** button, choose **Download ZIP**, then unzip the file and open a terminal inside the extracted folder.
+
+You'll also need **[Node.js](https://nodejs.org)** version 20 or newer — download the "LTS" build if you don't already have it.
+
+### 2. Install dependencies
 
 ```bash
 npm install
 ```
 
-### 2. Set up the database (Neon)
+### 3. Set up the database (Neon)
 
 1. Create a free Postgres database at <https://console.neon.tech>.
 2. Grab two connection strings from the dashboard:
    - **Pooled** (`-pooler.neon.tech` in the host) → `DATABASE_URL`
    - **Direct** (no `-pooler`) → `DIRECT_DATABASE_URL`
 
-### 3. Set up UploadThing
+### 4. Set up UploadThing
 
 1. Create an app at <https://uploadthing.com>.
 2. Copy the single **token** from the API Keys page → `UPLOADTHING_TOKEN`.
 
-### 4. Configure environment
+### 5. Configure environment
 
 Copy `.env.example` to `.env` and fill in the values:
 
@@ -62,14 +75,14 @@ DIRECT_DATABASE_URL=postgresql://....region.aws.neon.tech/db?sslmode=require
 UPLOADTHING_TOKEN=<from UploadThing dashboard>
 ```
 
-### 5. Migrate and seed
+### 6. Migrate and seed
 
 ```bash
 npm run db:migrate    # applies the Prisma schema to your Neon DB
 npm run db:seed       # writes demo users, clients, projects, anchors, inspections, drawings
 ```
 
-### 6. Run the dev server
+### 7. Run the dev server
 
 ```bash
 npm run dev
