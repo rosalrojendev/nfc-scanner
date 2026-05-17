@@ -22,6 +22,8 @@ A multi-tenant SaaS for **roof-anchor field inspection**. Built mobile-first, ru
 | QR scanning         | `jsqr` against a `<canvas>` from a `getUserMedia` stream or uploaded image              |
 | NFC scanning + write | `Web NFC` (`NDEFReader`) on supported devices (Chrome on Android over HTTPS)           |
 | Icons               | `lucide-react` + one custom SVG (`AnchorTagIcon`)                                       |
+| **i18n**            | Homegrown dictionary-based locale store (`lib/i18n.ts`) — English + Canadian French    |
+| **Tests**           | **Vitest** — pure-function smoke tests on the scan resolver + permissions matrix       |
 
 ---
 
@@ -108,13 +110,15 @@ The **"Try demo bypass"** button on the login page issues a session for the curr
 
 - List page with full-text search, status filter, building filter, configurable sort.
 - Detail page with metadata, inspection history, NFC writer card, **QR plate** card, edit dialog (label, building, location, drawing, **NFC chip serial**), and a **soft-delete** flow with type-the-ID confirmation.
+- **Inspection photos gallery** — single collapsible "Visual record" card on the detail page that groups every inspection's photos chronologically (newest first), with the inspection's date + inspector + result pill as the header for each group. Paginates 5 inspections per page once the anchor has more than that.
+- **Full-screen photo lightbox** — clicking any thumbnail opens a portal'd viewer with keyboard navigation, horizontal swipe, photo counter, and a corner "open in new tab" icon. The viewer carries the *whole anchor's* chronological photo set so the user can swipe between inspections to compare states over time.
 - **Soft delete** — `deletedAt` / `deletedBy` columns; deleted records still surface in the activity feed.
 
 ### Inspections
 
 - Full form with photo upload (UploadThing), canvas signature pad (touch/mouse/stylus), Zod-validated input, inspector picker scoped to the current project's client + deduped by userId.
 - **Defaults to the signed-in user** when an inspector logs an inspection.
-- After save, redirects to `/inspections` (new) or back to the anchor detail (edit).
+- **After save, always redirects to the parent anchor's detail page** — both new inspections and edits — so the user immediately lands in the timeline + photo gallery for what they just saved.
 - Cascades onto the parent anchor: `lastTested`, `nextDue`, `status`, `inspector`, `proofResult`.
 - **Soft delete** with the same `deletedAt` audit trail as anchors.
 
@@ -161,7 +165,7 @@ The **"Try demo bypass"** button on the login page issues a session for the curr
 - **Share report links** — tokenized `/share/[id]` public read-only pages, no auth required, indexed-as-no-follow.
 - Buildings management (rename cascades to anchors + drawings).
 - **Tenancy** moved out of Settings into its own `/tenancy` route (admin only) with its own nav slot.
-- **Appearance** — light/dark toggle and a **brand palette** switch (Anchor steel-teal vs KRA classic warm-cream + orange).
+- **Appearance** — light/dark toggle, a **brand palette** switch (Anchor steel-teal vs KRA classic warm-cream + orange), and a **language** switch (English / Canadian French) wired into the in-house i18n layer.
 
 ### Project switching
 
@@ -173,6 +177,15 @@ The **"Try demo bypass"** button on the login page issues a session for the curr
 - Centered overlay loader (anchored within the main content region, not the full viewport) for the global fetch indicator.
 - Toast system for success/error feedback.
 - Skeleton placeholders for counts and lists so users don't see "0" while data is in flight.
+
+### Internationalization (English + Canadian French)
+
+- **Lightweight homegrown i18n** in [`lib/i18n.ts`](lib/i18n.ts) — no library dependency. English is the source of truth, French is a `Partial` dictionary that falls back to English (then to the raw key) for any unmatched string, so the UI never shows a blank label mid-rollout.
+- **Locale persists** in `localStorage` (`atp-locale`) and is restored before first paint by the same boot script that handles theme + palette — no hydration flicker.
+- **`useT()` hook** with `{name}`-style interpolation: `t("topbar.logoutConfirmBody", { name: user.name })`.
+- **`LanguageToggle`** segmented control in Settings → Appearance.
+- Currently translated: Settings → Appearance card, language toggle labels, topbar (logout confirm, sign out, scanner/settings tooltips), and the common action verbs (Cancel / Save / Close / Delete / Edit). Additional surfaces translate incrementally by adding keys to the `en` dictionary, mirroring them in `fr`, and replacing the hardcoded string with `t("key")`.
+- **Inspection data stays in its source language** — the locale switch only changes the UI shell; field notes typed in French by an inspector are preserved exactly as entered for the English-speaking admin viewing the same anchor (Canadian compliance pattern).
 
 ---
 
@@ -213,6 +226,24 @@ Permissions live in [`lib/permissions.ts`](lib/permissions.ts) and are enforced 
 
 ---
 
+## Tests
+
+Vitest is wired up for fast, pure-function smoke tests. Two suites currently — they execute in well under 200 ms together and gate the permission matrix + scan resolver against regression.
+
+```
+npm test          # one-shot run, exit non-zero on failure (CI-friendly)
+npm run test:watch # TUI watcher for iterative work
+```
+
+What's covered today:
+
+- **[`lib/scan.test.ts`](lib/scan.test.ts)** — 16 cases on `resolveScanPayload` covering all three matching strategies (direct ID / `qrCode` / `nfcTag` overrides, URL last-segment, substring fallback) plus the empty-input and no-match paths.
+- **[`lib/permissions.test.ts`](lib/permissions.test.ts)** — 69 cases driven from an `EXPECTED` matrix that mirrors the role table in this README. One auto-generated `it()` per capability × role cell, plus a guard test that catches any new `can.*` capability landing without a row in `EXPECTED` (drift detection).
+
+Test config lives in [`vitest.config.ts`](vitest.config.ts) — node environment (no jsdom), `@/` path alias matching the Next config, and `app/**` excluded so route handlers don't get inadvertently imported.
+
+---
+
 ## Project structure
 
 ```
@@ -248,8 +279,8 @@ app/
 components/
   ui/                         Button, Card, Input, Badge, Dialog, Segmented, Toast, Empty
   shell/                      TopBar, SideNav, BottomNav, ThemeToggle, PaletteToggle,
-                              ProjectSwitcher, SessionProvider, ProjectProvider,
-                              GlobalLoader, ClimbingLoader
+                              LanguageToggle, ProjectSwitcher, SessionProvider,
+                              ProjectProvider, GlobalLoader, ClimbingLoader
   scan/                       qr-scanner, nfc-scanner, nfc-writer
   inspection/                 photo-upload, signature-pad, inspector-picker
   anchors/                    anchor-qr-panel, anchor-plate-pdf, new-anchor-dialog
@@ -259,6 +290,8 @@ components/
                               tenancy-manager, share-link-dialog, reminders-dialog,
                               edit-profile-dialog, my-profile-photo
   icons/                      anchor-tag-icon (custom hanging-anchor mark)
+  photo-lightbox.tsx          Full-screen viewer (portal'd) — keyboard, swipe, counter,
+                              open-in-new-tab icon, cross-inspection swipe queue
 lib/
   auth.ts                     bcrypt + jose helpers (server-only)
   permissions.ts              Role-based capability matrix
@@ -268,9 +301,12 @@ lib/
   buildings-store.ts          /api/buildings client cache
   drawings-store.ts           /api/drawings client cache
   settings-store.ts           User prefs, reminders, share links, inspectors
+  i18n.ts                     Locale store + useT() hook + en/fr dictionaries
   loading-state.ts            useIsFetching for the global loader
   nfc-payload.ts              JSON payload + buildTagUrl for NFC writes
   scan.ts                     resolveScanPayload (3-strategy matcher)
+  scan.test.ts                Vitest cases for resolveScanPayload
+  permissions.test.ts         Vitest cases for the can.* matrix
   validation.ts               Zod schemas, including anchor patch with nfcTag
   types.ts                    Shared TS types
   utils.ts                    cn, formatDate, daysUntil, uid, timestampFilename
@@ -284,6 +320,7 @@ prisma/
 middleware.ts                 Auth gate; opens /login, /signup, /share/*, /api/auth/*,
                               /api/uploadthing
 next.config.ts                Security headers
+vitest.config.ts              Test runner config (node env, @/ alias)
 ```
 
 ---
@@ -315,7 +352,7 @@ These are obvious wins that didn't land in this pass, ordered roughly by impact 
 
 11. **Bulk anchor import** — CSV importer that creates anchors in bulk from a spreadsheet. Especially useful for the initial rollout on a building.
 12. **Search across projects** — global search shortcut (`Cmd+K`) that hits anchors / inspections / drawings across all accessible projects.
-13. **Localization** — strings are English-only. The schema and components don't make this hard to retrofit if you need French / Spanish / etc.
+13. **Complete French translation coverage** — the i18n infrastructure is in place and the Settings + Topbar are translated, but the bulk of strings (login, dashboard, anchor/inspection/drawing/report pages, toast messages) are still English-only. Mechanical work: add the key to `en` in `lib/i18n.ts`, mirror it in `fr`, replace the hardcoded string with `t("…")`.
 
 ---
 
@@ -326,6 +363,8 @@ npm run dev          # Turbopack dev server, http://localhost:3000
 npm run build        # prisma generate && next build
 npm start            # Run the production build
 npm run lint         # ESLint with Next.js config
+npm test             # Vitest one-shot run (lib smoke tests)
+npm run test:watch   # Vitest TUI watcher
 npm run db:migrate   # Apply Prisma schema changes to the database
 npm run db:seed      # Re-seed users, clients, projects, anchors, etc.
 npm run db:studio    # Open Prisma Studio against the connected database
