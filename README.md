@@ -189,6 +189,28 @@ The **"Try demo bypass"** button on the login page issues a session for the curr
 
 ---
 
+## What was simplified
+
+The brief explicitly says *"we are not looking for perfection"* and marks several features as fine to mock. A few deliberate trade-offs worth flagging up front, so a reviewer can see exactly where the shortcuts are:
+
+1. **Email sharing uses `mailto:`, not a real provider.** The Reports page generates the polished PDF, downloads it, then opens the user's mail client with a pre-filled subject + body that tells them to attach the just-downloaded file. No Resend / Postmark / SES integration — keeps the demo dependency-free at the cost of one manual attach step on the user side.
+
+2. **Rate limiting is in-memory per process.** `/api/auth/login` and `/api/auth/signup` use a `Map`-based token bucket capped at 8 requests/IP/minute. The counter resets on every serverless cold start and each instance has its own state. Acceptable for the assessment; production would swap in [Upstash Ratelimit](https://github.com/upstash/ratelimit) or a platform-level WAF, and the same gate would extend to `/api/auth/demo`.
+
+3. **Tests cover pure-function logic only.** The Vitest suite has 85 cases on `resolveScanPayload` and the `can.*` permission matrix. The Prisma-backed API routes (`/api/anchors/[id]` DELETE, soft-delete cascades, etc.) don't have integration tests yet — that requires either a test database or a Prisma mock harness.
+
+4. **Activity feed is derived, not stored.** The dashboard's "Recent events" rolls up `inspections` + `anchor.deletedAt` + `inspection.deletedAt` on the client. There's no `ActivityEvent` table, so edits to existing anchors, drawing-pin changes, and share-link operations don't surface in the feed — only inspection creates and soft-deletes do. Promoting it to a real audit-event table is in [Suggested next steps](#suggested-next-steps).
+
+5. **Reminders are surfaced visually, not pushed.** The 60/30/7-day toggles drive the dashboard banner — they don't trigger real notifications (no cron job, push service, or email reminders). Per-anchor due notifications via a scheduled worker is in Suggested next steps.
+
+6. **French translation is partial.** The i18n infrastructure is in place and Settings + Topbar are fully translated, but the bulk of strings (login, dashboard, anchor / inspection / drawing / report pages, toast messages) are still English-only. Missing keys fall back to English so the UI never breaks; remaining work is mechanical dictionary entries.
+
+7. **Rate limit not yet applied to demo bypass.** `/api/auth/demo` is the third auth endpoint and currently unguarded — same fix as #2 once distributed rate limiting lands.
+
+Everything else listed in [What's implemented](#whats-implemented) above is working end-to-end against the live Postgres backend; these seven items are the *deliberate* shortcuts. Anything not mentioned here either works as documented or is called out in Suggested next steps.
+
+---
+
 ## Roles & permissions
 
 | Capability                      | Admin | Client | Inspector |

@@ -14,6 +14,7 @@ import {
   patchAnchor,
   deleteAnchorById,
 } from "@/lib/store";
+import { useDrawings } from "@/lib/drawings-store";
 import { useIsFetching } from "@/lib/loading-state";
 import { ClimbingLoader } from "@/components/shell/climbing-loader";
 import { formatDate, daysUntil } from "@/lib/utils";
@@ -47,8 +48,15 @@ export function AnchorDetailClient({ id }: { id: string }) {
   const { notify } = useToast();
   const anchors = useAnchors();
   const inspections = useInspections();
+  const drawings = useDrawings();
   const isFetching = useIsFetching();
   const anchor = anchors.find((a) => a.id === id);
+  // The first drawing whose pin set contains this anchor — used to deep-link
+  // the "Open drawing" button to the right card instead of the full library.
+  const pinnedDrawing = React.useMemo(
+    () => drawings.find((d) => d.anchors.some((pin) => pin.id === id)) ?? null,
+    [drawings, id],
+  );
   // The server already verified this anchor exists and is accessible
   // (see page.tsx). If our local cache is still empty, we're just
   // mid-bootstrap — show the loader instead of flashing "not found".
@@ -261,6 +269,7 @@ export function AnchorDetailClient({ id }: { id: string }) {
           <KV label="NFC tag" value={anchor.nfcTag || "—"} />
           <KV label="QR code" value={anchor.qrCode || anchor.id} />
           <KV label="Drawing" value={anchor.drawing} />
+          <KV label="Installed" value={formatDate(anchor.createdAt)} />
           <KV label="Last tested" value={formatDate(anchor.lastTested)} />
           <KV
             label="Retest due"
@@ -293,9 +302,14 @@ export function AnchorDetailClient({ id }: { id: string }) {
               </Button>
             </Link>
           ) : null}
-          <Link href="/drawings">
+          <Link
+            href={
+              pinnedDrawing ? `/drawings#drawing-${pinnedDrawing.id}` : "/drawings"
+            }
+          >
             <Button>
-              <MapIcon size={16} /> Open drawing
+              <MapIcon size={16} />
+              {pinnedDrawing ? "Open drawing" : "Browse drawings"}
             </Button>
           </Link>
           {canEdit ? (

@@ -49,6 +49,7 @@ function toAnchor(a: AnchorDb): Anchor {
       a.positionX != null && a.positionY != null
         ? { x: a.positionX, y: a.positionY }
         : undefined,
+    createdAt: a.createdAt ? a.createdAt.toISOString() : null,
     deletedAt: a.deletedAt ? a.deletedAt.toISOString() : null,
     deletedBy: a.deletedBy ?? null,
     deletedByName: a.deletedByName ?? null,

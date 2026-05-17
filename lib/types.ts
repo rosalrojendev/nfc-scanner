@@ -37,6 +37,8 @@ export interface Anchor {
   nfcTag?: string;
   qrCode?: string;
   position?: { x: number; y: number };
+  // Marketing-promised "installation date" surfaced on the anchor detail page.
+  createdAt?: string | null;
   // Soft-delete trio. Set when an admin/inspector removes the anchor; the
   // record stays in the database so the activity feed can show who removed it.
   deletedAt?: string | null;
