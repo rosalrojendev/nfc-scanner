@@ -18,7 +18,10 @@ import {
   getAnchor,
 } from "@/lib/store";
 import { inspectionInputSchema } from "@/lib/validation";
+import { timestampFilename } from "@/lib/utils";
 import { useSettings } from "@/lib/settings-store";
+import { useSession } from "@/components/shell/session-provider";
+import { useProjectContext } from "@/components/shell/project-provider";
 import type { Inspection, InspectionResult } from "@/lib/types";
 import { ClipboardCheck, Save, X, Loader2 } from "lucide-react";
 import { NfcWriter } from "@/components/scan/nfc-writer";
@@ -27,11 +30,12 @@ import { uploadFiles } from "@/lib/uploadthing";
 
 async function dataUrlToFile(
   dataUrl: string,
-  filename = "signature.png",
+  filename?: string,
 ): Promise<File> {
   const res = await fetch(dataUrl);
   const blob = await res.blob();
-  return new File([blob], filename, { type: blob.type || "image/png" });
+  const name = filename ?? timestampFilename("sig", "png");
+  return new File([blob], name, { type: blob.type || "image/png" });
 }
 
 function todayISO() {
@@ -68,17 +72,49 @@ export function InspectionFormClient() {
   const { notify } = useToast();
   const anchors = useAnchors();
   const settings = useSettings();
-  const inspectorRoster = settings.inspectors;
+  const session = useSession();
+  const { currentProject } = useProjectContext();
+  const currentClientId = currentProject?.clientId ?? null;
+
+  // The Inspector table is keyed by (clientId, userId), so an admin who can
+  // see multiple clients gets the same person back once per client. Scope to
+  // the active project's client and then dedupe by userId for safety.
+  const inspectorRoster = React.useMemo(() => {
+    const scoped = currentClientId
+      ? settings.inspectors.filter((i) => i.clientId === currentClientId)
+      : settings.inspectors;
+    const seen = new Set<string>();
+    return scoped.filter((i) => {
+      if (seen.has(i.userId)) return false;
+      seen.add(i.userId);
+      return true;
+    });
+  }, [settings.inspectors, currentClientId]);
 
   const editingId = params.get("id");
   const presetAnchor = params.get("anchor") || "";
+
+  // If the signed-in user is an inspector, the form prefills with their own
+  // name — they're nearly always logging their own work. Other roles fall back
+  // to the first roster entry (admin or client viewing a project).
+  const defaultInspectorName = React.useCallback(
+    (roster: { userId: string; name: string }[]) => {
+      if (session.role === "inspector") {
+        return (
+          roster.find((i) => i.userId === session.id)?.name ?? session.name
+        );
+      }
+      return roster[0]?.name ?? "";
+    },
+    [session.id, session.name, session.role],
+  );
 
   const [draft, setDraft] = React.useState<Inspection>(() => {
     if (editingId) {
       const existing = getInspection(editingId);
       if (existing) return existing;
     }
-    return emptyDraft(presetAnchor, inspectorRoster[0]?.name || "");
+    return emptyDraft(presetAnchor, defaultInspectorName(inspectorRoster));
   });
   const [errors, setErrors] = React.useState<Record<string, string>>({});
   const [savedInspection, setSavedInspection] =
@@ -132,6 +168,12 @@ export function InspectionFormClient() {
           : "Inspection saved. Next retest date updated.",
         "success",
       );
+      if (editingId) {
+        router.push(`/anchors/${encodeURIComponent(payload.anchorId)}`);
+      } else {
+        router.push("/inspections");
+      }
+      router.refresh();
     } catch (err) {
       notify(err instanceof Error ? err.message : "Save failed.", "error");
     } finally {
@@ -338,19 +380,7 @@ export function InspectionFormClient() {
         </Card>
       ) : null}
 
-      <Card>
-        <div>
-          <Eyebrow>Tips</Eyebrow>
-          <h2 className="text-base font-semibold mt-1 inline-flex items-center gap-2">
-            <ClipboardCheck size={16} /> Field-friendly defaults
-          </h2>
-          <p className="text-sm text-[var(--color-text-muted)] mt-2">
-            Missing fields are caught with inline errors. Photos upload to
-            cloud storage; only the URL is saved with the inspection. Signatures
-            stay on the device.
-          </p>
-        </div>
-      </Card>
+    
     </>
   );
 }

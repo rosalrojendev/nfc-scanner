@@ -2,19 +2,19 @@
 
 :root,
 [data-theme="light"] {
-  --color-bg: #f6f4ee;
-  --color-surface: #fbfaf6;
+  --color-bg: #f1f3f6;
+  --color-surface: #f8f9fb;
   --color-surface-2: #ffffff;
-  --color-surface-offset: #ece8df;
+  --color-surface-offset: #e3e8ee;
   --color-border: rgba(28, 36, 50, 0.1);
-  --color-divider: #d8d3c8;
-  --color-text: #1c2432;
-  --color-text-muted: #5b6473;
-  --color-text-faint: #8e95a2;
-  --color-text-inverse: #fbfaf6;
-  --color-primary: #d96030;
-  --color-primary-hover: #b94d22;
-  --color-primary-highlight: #fde2d4;
+  --color-divider: #d2d8e0;
+  --color-text: #1a2129;
+  --color-text-muted: #566372;
+  --color-text-faint: #8b95a3;
+  --color-text-inverse: #f8f9fb;
+  --color-primary: #2f6a82;
+  --color-primary-hover: #234f63;
+  --color-primary-highlight: #dde9ef;
   --color-success: #4d7d2e;
   --color-success-highlight: rgba(77, 125, 46, 0.14);
   --color-warning: #c4831a;
@@ -23,25 +23,25 @@
   --color-error-highlight: rgba(184, 51, 58, 0.14);
   --color-blue: #1f3a5f;
   --color-blue-highlight: rgba(31, 58, 95, 0.12);
-  --shadow-sm: 0 1px 2px rgba(31, 37, 55, 0.06);
-  --shadow-md: 0 12px 32px rgba(31, 37, 55, 0.09);
-  --shadow-lg: 0 22px 50px rgba(31, 37, 55, 0.14);
+  --shadow-sm: 0 1px 2px rgba(26, 33, 41, 0.06);
+  --shadow-md: 0 12px 32px rgba(26, 33, 41, 0.09);
+  --shadow-lg: 0 22px 50px rgba(26, 33, 41, 0.14);
 }
 
 [data-theme="dark"] {
-  --color-bg: #131820;
-  --color-surface: #1a2029;
-  --color-surface-2: #212834;
-  --color-surface-offset: #2a3240;
+  --color-bg: #1a212a;
+  --color-surface: #222a35;
+  --color-surface-2: #2b3441;
+  --color-surface-offset: #343e4d;
   --color-border: rgba(220, 225, 235, 0.1);
-  --color-divider: #2d3441;
+  --color-divider: #2f3a47;
   --color-text: #e6e7eb;
   --color-text-muted: #a8aebb;
   --color-text-faint: #717685;
-  --color-text-inverse: #131820;
-  --color-primary: #ee7d4a;
-  --color-primary-hover: #ff945e;
-  --color-primary-highlight: #3a2620;
+  --color-text-inverse: #1a212a;
+  --color-primary: #86b9cd;
+  --color-primary-hover: #a4ccdc;
+  --color-primary-highlight: #1f3b48;
   --color-success: #7fb95b;
   --color-success-highlight: rgba(127, 185, 91, 0.16);
   --color-warning: #e0a35b;
@@ -157,8 +157,7 @@ p {
 
 :focus-visible {
   outline: 2px solid var(--color-primary);
-  outline-offset: 3px;
-  border-radius: 6px;
+  outline-offset: 2px;
 }
 
 .sr-only {

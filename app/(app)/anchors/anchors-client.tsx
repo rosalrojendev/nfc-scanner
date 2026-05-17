@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, Label, Field } from "@/components/ui/input";
 import { SearchField } from "@/components/ui/search-field";
 import { Segmented } from "@/components/ui/segmented";
-import { useAnchors } from "@/lib/store";
+import { useAnchors, useStoreLoaded } from "@/lib/store";
 import { useProjectContext } from "@/components/shell/project-provider";
 import { useSession } from "@/components/shell/session-provider";
 import { can } from "@/lib/permissions";
@@ -55,6 +55,7 @@ function StatusPill({ status }: { status: AnchorStatus }) {
 
 export function AnchorsClient() {
   const allAnchors = useAnchors();
+  const storeLoaded = useStoreLoaded();
   const { currentProjectId } = useProjectContext();
   const session = useSession();
   const canCreate = can.editAnchor(session.role);
@@ -122,9 +123,13 @@ export function AnchorsClient() {
             </h1>
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            <Badge variant="default">
-              {filtered.length} of {anchors.length}
-            </Badge>
+            {storeLoaded ? (
+              <Badge variant="default">
+                {filtered.length} of {anchors.length}
+              </Badge>
+            ) : (
+              <span className="skeleton inline-block h-6 w-20 rounded-full" aria-hidden />
+            )}
             {canCreate ? (
               <Button
                 variant="primary"
@@ -196,7 +201,13 @@ export function AnchorsClient() {
         ) : null}
       </Card>
 
-      {filtered.length === 0 ? (
+      {!storeLoaded ? (
+        <div className="grid gap-3" aria-label="Loading anchors">
+          <span className="skeleton block h-24 rounded-2xl" />
+          <span className="skeleton block h-24 rounded-2xl" aria-hidden />
+          <span className="skeleton block h-24 rounded-2xl" aria-hidden />
+        </div>
+      ) : filtered.length === 0 ? (
         <Card className="py-12 text-center">
           <p className="text-[var(--color-text-muted)]">
             No anchors match your filters.

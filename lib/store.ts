@@ -7,8 +7,24 @@ import { withFetch } from "./loading-state";
 
 let anchorsCache: Anchor[] = SEED_ANCHORS;
 let inspectionsCache: Inspection[] = SEED_INSPECTIONS;
+// Mirrored caches that drop soft-deleted rows. Kept in lockstep with the
+// full cache below so that useSyncExternalStore consumers see a stable
+// reference between updates (filtering inline on each read would create a
+// new array every render and break React's snapshot equality check).
+let anchorsCacheActive: Anchor[] = SEED_ANCHORS;
+let inspectionsCacheActive: Inspection[] = SEED_INSPECTIONS;
 let bootstrapped = false;
 let bootstrapping: Promise<void> | null = null;
+
+function setAnchorsCache(next: Anchor[]) {
+  anchorsCache = next;
+  anchorsCacheActive = next.filter((a) => !a.deletedAt);
+}
+
+function setInspectionsCache(next: Inspection[]) {
+  inspectionsCache = next;
+  inspectionsCacheActive = next.filter((i) => !i.deletedAt);
+}
 
 const listeners = new Set<() => void>();
 
@@ -30,21 +46,24 @@ function subscribe(listener: () => void): () => void {
   };
 }
 
+// We fetch WITH soft-deleted records so the dashboard activity feed can
+// surface "X deleted Y" events. The default `useAnchors` / `useInspections`
+// hooks filter `deletedAt` out, so list pages still see active records only.
 async function bootstrap(): Promise<void> {
   if (!isClient() || bootstrapped) return;
   bootstrapping ??= withFetch(async () => {
     try {
       const [a, i] = await Promise.all([
-        fetch("/api/anchors", { credentials: "include" }),
-        fetch("/api/inspections", { credentials: "include" }),
+        fetch("/api/anchors?with_deleted=1", { credentials: "include" }),
+        fetch("/api/inspections?with_deleted=1", { credentials: "include" }),
       ]);
       if (a.ok) {
         const j = (await a.json()) as { anchors: Anchor[] };
-        anchorsCache = j.anchors;
+        setAnchorsCache(j.anchors);
       }
       if (i.ok) {
         const j = (await i.json()) as { inspections: Inspection[] };
-        inspectionsCache = j.inspections;
+        setInspectionsCache(j.inspections);
       }
       bootstrapped = true;
       notify();
@@ -58,10 +77,12 @@ async function bootstrap(): Promise<void> {
 export async function refetchAnchors(): Promise<void> {
   if (!isClient()) return;
   await withFetch(async () => {
-    const r = await fetch("/api/anchors", { credentials: "include" });
+    const r = await fetch("/api/anchors?with_deleted=1", {
+      credentials: "include",
+    });
     if (!r.ok) return;
     const j = (await r.json()) as { anchors: Anchor[] };
-    anchorsCache = j.anchors;
+    setAnchorsCache(j.anchors);
     notify();
   });
 }
@@ -69,10 +90,12 @@ export async function refetchAnchors(): Promise<void> {
 export async function refetchInspections(): Promise<void> {
   if (!isClient()) return;
   await withFetch(async () => {
-    const r = await fetch("/api/inspections", { credentials: "include" });
+    const r = await fetch("/api/inspections?with_deleted=1", {
+      credentials: "include",
+    });
     if (!r.ok) return;
     const j = (await r.json()) as { inspections: Inspection[] };
-    inspectionsCache = j.inspections;
+    setInspectionsCache(j.inspections);
     notify();
   });
 }
@@ -81,7 +104,14 @@ export async function refetchAll(): Promise<void> {
   await Promise.all([refetchAnchors(), refetchInspections()]);
 }
 
+// Default surface = active only. Most pages should never see soft-deleted
+// records. The activity feed uses getAllAnchors() / useAllAnchors() to opt
+// in to the full cache including tombstones.
 export function getAnchors(): Anchor[] {
+  return anchorsCacheActive;
+}
+
+export function getAllAnchors(): Anchor[] {
   return anchorsCache;
 }
 
@@ -132,11 +162,15 @@ export async function patchAnchor(
 }
 
 export function getInspections(): Inspection[] {
+  return inspectionsCacheActive;
+}
+
+export function getAllInspections(): Inspection[] {
   return inspectionsCache;
 }
 
 export function getInspectionsForAnchor(anchorId: string): Inspection[] {
-  return inspectionsCache
+  return inspectionsCacheActive
     .filter((i) => i.anchorId === anchorId)
     .sort(
       (a, b) =>
@@ -198,6 +232,18 @@ export async function updateInspection(
   return j.inspection;
 }
 
+export async function deleteAnchorById(id: string): Promise<void> {
+  const r = await fetch(`/api/anchors/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+    credentials: "include",
+  });
+  if (!r.ok) {
+    const j = await r.json().catch(() => ({}));
+    throw new Error(j.error || `Failed to delete anchor (${r.status})`);
+  }
+  await refetchAll();
+}
+
 export async function deleteInspectionById(id: string): Promise<void> {
   const r = await fetch(`/api/inspections/${encodeURIComponent(id)}`, {
     method: "DELETE",
@@ -226,6 +272,25 @@ export function useAnchors(): Anchor[] {
   return useSyncExternalStore(subscribe, getAnchors, () => SEED_ANCHORS);
 }
 
+export function useAllAnchors(): Anchor[] {
+  return useSyncExternalStore(subscribe, getAllAnchors, () => SEED_ANCHORS);
+}
+
 export function useInspections(): Inspection[] {
   return useSyncExternalStore(subscribe, getInspections, () => SEED_INSPECTIONS);
+}
+
+export function useAllInspections(): Inspection[] {
+  return useSyncExternalStore(subscribe, getAllInspections, () => SEED_INSPECTIONS);
+}
+
+function getLoaded(): boolean {
+  return bootstrapped;
+}
+
+// True once the first /api/anchors + /api/inspections fetch has completed.
+// Consumers should render skeleton placeholders while false instead of
+// treating the seed-array fallback as real data.
+export function useStoreLoaded(): boolean {
+  return useSyncExternalStore(subscribe, getLoaded, () => false);
 }

@@ -21,9 +21,10 @@ export async function GET(req: Request) {
   }
   const url = new URL(req.url);
   const anchorId = url.searchParams.get("anchorId") ?? undefined;
+  const includeDeleted = url.searchParams.get("with_deleted") === "1";
   const projectIds = await getAccessibleProjectIds(session);
   return NextResponse.json({
-    inspections: await listInspections({ anchorId, projectIds }),
+    inspections: await listInspections({ anchorId, projectIds, includeDeleted }),
   });
 }
 

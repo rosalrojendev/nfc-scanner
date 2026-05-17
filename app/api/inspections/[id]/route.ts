@@ -95,6 +95,9 @@ export async function DELETE(
       { status: 404 },
     );
   }
-  const ok = await deleteInspection(id);
+  const ok = await deleteInspection(id, {
+    id: session.id,
+    name: session.name,
+  });
   return NextResponse.json({ ok });
 }

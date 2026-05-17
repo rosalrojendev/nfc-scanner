@@ -2,6 +2,9 @@
 
 import * as React from "react";
 import type { Client, Project } from "@/lib/types";
+import { refetchAll as refetchAnchorsAndInspections } from "@/lib/store";
+import { refetch as refetchBuildings } from "@/lib/buildings-store";
+import { refetch as refetchDrawings } from "@/lib/drawings-store";
 
 interface ProjectContextValue {
   clients: Client[];
@@ -35,15 +38,24 @@ export function ProjectProvider({
 
   const setCurrentProject = React.useCallback(async (projectId: string) => {
     setCurrentProjectId(projectId);
+    // Kick off refetches in parallel with the server-side preference write.
+    // The store helpers wrap their fetches in withFetch(), so the GlobalLoader
+    // surfaces while data is being refreshed — giving the user a clear "the
+    // page is switching" affordance instead of a silent context swap.
     try {
-      await fetch("/api/me/current-project", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ projectId }),
-      });
+      await Promise.all([
+        fetch("/api/me/current-project", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ projectId }),
+        }),
+        refetchAnchorsAndInspections(),
+        refetchBuildings(),
+        refetchDrawings(),
+      ]);
     } catch {
-      // optimistic — UI already updated
+      // optimistic — UI already updated to the new project
     }
   }, []);
 

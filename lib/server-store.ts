@@ -49,6 +49,9 @@ function toAnchor(a: AnchorDb): Anchor {
       a.positionX != null && a.positionY != null
         ? { x: a.positionX, y: a.positionY }
         : undefined,
+    deletedAt: a.deletedAt ? a.deletedAt.toISOString() : null,
+    deletedBy: a.deletedBy ?? null,
+    deletedByName: a.deletedByName ?? null,
   };
 }
 
@@ -71,6 +74,9 @@ function toInspection(i: InspectionDb): Inspection {
     submittedBy: i.submittedBy,
     submittedByName: i.submittedByName,
     submittedByRole: i.submittedByRole,
+    deletedAt: i.deletedAt ? i.deletedAt.toISOString() : null,
+    deletedBy: i.deletedBy ?? null,
+    deletedByName: i.deletedByName ?? null,
   };
 }
 
@@ -287,13 +293,22 @@ export async function canAccessProject(
 
 export async function listAnchors(filter?: {
   projectIds?: Set<string>;
+  // Default behaviour hides soft-deleted anchors. Pass true to load them
+  // (used by the activity feed to show who removed which anchor).
+  includeDeleted?: boolean;
 }): Promise<Anchor[]> {
-  const where =
-    filter?.projectIds && filter.projectIds.size > 0
-      ? { projectId: { in: Array.from(filter.projectIds) } }
-      : filter?.projectIds
-        ? { projectId: { in: [] as string[] } }
-        : undefined;
+  const where: {
+    projectId?: { in: string[] };
+    deletedAt?: null | { not: null };
+  } = {};
+  if (filter?.projectIds) {
+    where.projectId = {
+      in: filter.projectIds.size > 0 ? Array.from(filter.projectIds) : [],
+    };
+  }
+  if (!filter?.includeDeleted) {
+    where.deletedAt = null;
+  }
   const rows = await prisma.anchor.findMany({
     where,
     orderBy: { id: "asc" },
@@ -358,11 +373,19 @@ export async function upsertAnchor(anchor: Anchor): Promise<Anchor> {
 export async function listInspections(filter?: {
   anchorId?: string;
   projectIds?: Set<string>;
+  includeDeleted?: boolean;
 }): Promise<Inspection[]> {
-  const where: { anchorId?: string; projectId?: { in: string[] } } = {};
+  const where: {
+    anchorId?: string;
+    projectId?: { in: string[] };
+    deletedAt?: null | { not: null };
+  } = {};
   if (filter?.anchorId) where.anchorId = filter.anchorId;
   if (filter?.projectIds) {
     where.projectId = { in: Array.from(filter.projectIds) };
+  }
+  if (!filter?.includeDeleted) {
+    where.deletedAt = null;
   }
   const rows = await prisma.inspection.findMany({
     where,
@@ -427,9 +450,41 @@ export async function saveInspection(
   return toInspection(saved);
 }
 
-export async function deleteInspection(id: string): Promise<boolean> {
+export async function deleteInspection(
+  id: string,
+  actor?: { id: string; name: string } | null,
+): Promise<boolean> {
+  // Soft-delete: stamp deletedAt + actor so the activity feed can show who
+  // removed the record, and the inspection row itself stays in the database
+  // for historical context.
   try {
-    await prisma.inspection.delete({ where: { id } });
+    await prisma.inspection.update({
+      where: { id },
+      data: {
+        deletedAt: new Date(),
+        deletedBy: actor?.id ?? null,
+        deletedByName: actor?.name ?? null,
+      },
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function softDeleteAnchor(
+  id: string,
+  actor?: { id: string; name: string } | null,
+): Promise<boolean> {
+  try {
+    await prisma.anchor.update({
+      where: { id },
+      data: {
+        deletedAt: new Date(),
+        deletedBy: actor?.id ?? null,
+        deletedByName: actor?.name ?? null,
+      },
+    });
     return true;
   } catch {
     return false;

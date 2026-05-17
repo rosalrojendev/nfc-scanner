@@ -22,7 +22,6 @@ import {
   useSettings,
 } from "@/lib/settings-store";
 import { ManageUsersDialog } from "@/components/settings/manage-users-dialog";
-import { ManageTenantsDialog } from "@/components/settings/manage-tenants-dialog";
 import { ManageBuildingsDialog } from "@/components/settings/manage-buildings-dialog";
 import { EditProfileDialog } from "@/components/settings/edit-profile-dialog";
 import { RemindersDialog } from "@/components/settings/reminders-dialog";
@@ -30,8 +29,8 @@ import { ShareLinkDialog } from "@/components/settings/share-link-dialog";
 import { MyProfilePhoto } from "@/components/settings/my-profile-photo";
 import { Avatar } from "@/components/ui/avatar";
 import { useProjectContext } from "@/components/shell/project-provider";
-import { useBuildings } from "@/lib/buildings-store";
-import { Building2, Building, UserCog } from "lucide-react";
+import { useBuildings, useBuildingsLoaded } from "@/lib/buildings-store";
+import { Building, UserCog } from "lucide-react";
 
 export function SettingsClient() {
   const { notify } = useToast();
@@ -44,12 +43,11 @@ export function SettingsClient() {
   const [usersOpen, setUsersOpen] = React.useState(false);
   const [remindersOpen, setRemindersOpen] = React.useState(false);
   const [shareOpen, setShareOpen] = React.useState(false);
-  const [tenantsOpen, setTenantsOpen] = React.useState(false);
   const [buildingsOpen, setBuildingsOpen] = React.useState(false);
   const [profileOpen, setProfileOpen] = React.useState(false);
-  const { canManageAnyClient, clients, projects, currentProject } =
-    useProjectContext();
+  const { currentProject } = useProjectContext();
   const allBuildings = useBuildings();
+  const buildingsLoaded = useBuildingsLoaded();
   const buildingsForCurrentProject = currentProject
     ? allBuildings.filter((b) => b.projectId === currentProject.id)
     : [];
@@ -126,13 +124,24 @@ export function SettingsClient() {
                 <strong className="inline-flex items-center gap-2">
                   <Users size={16} /> Authorized inspectors
                 </strong>
-                <span className="text-xs font-bold text-[var(--color-text-muted)]">
-                  {settings.inspectors.length}
-                </span>
+                {settings.loaded ? (
+                  <span className="text-xs font-bold text-[var(--color-text-muted)]">
+                    {settings.inspectors.length}
+                  </span>
+                ) : (
+                  <span
+                    className="skeleton inline-block h-4 w-6"
+                    aria-label="Loading count"
+                  />
+                )}
               </div>
-              <p className="text-sm text-[var(--color-text-muted)]">
-                {inspectorPreview}
-              </p>
+              {settings.loaded ? (
+                <p className="text-sm text-[var(--color-text-muted)]">
+                  {inspectorPreview}
+                </p>
+              ) : (
+                <span className="skeleton block h-4 w-3/4" aria-hidden />
+              )}
               <Button onClick={() => setUsersOpen(true)}>Manage users</Button>
             </article>
             <article className="p-5 rounded-2xl bg-[var(--color-surface-2)] border border-[var(--color-border)] grid gap-3">
@@ -140,21 +149,32 @@ export function SettingsClient() {
                 <strong className="inline-flex items-center gap-2">
                   <Bell size={16} /> Reminders
                 </strong>
-                <span className="text-xs font-bold text-[var(--color-text-muted)]">
-                  {reminderCount}/3 on
-                </span>
+                {settings.loaded ? (
+                  <span className="text-xs font-bold text-[var(--color-text-muted)]">
+                    {reminderCount}/3 on
+                  </span>
+                ) : (
+                  <span
+                    className="skeleton inline-block h-4 w-12"
+                    aria-label="Loading count"
+                  />
+                )}
               </div>
-              <p className="text-sm text-[var(--color-text-muted)]">
-                {reminderCount === 0
-                  ? "No reminders enabled. Re-tests will not be flagged."
-                  : `Alerts enabled at ${[
-                      settings.reminders.sixtyDay && "60",
-                      settings.reminders.thirtyDay && "30",
-                      settings.reminders.sevenDay && "7",
-                    ]
-                      .filter(Boolean)
-                      .join(", ")} days before due date.`}
-              </p>
+              {settings.loaded ? (
+                <p className="text-sm text-[var(--color-text-muted)]">
+                  {reminderCount === 0
+                    ? "No reminders enabled. Re-tests will not be flagged."
+                    : `Alerts enabled at ${[
+                        settings.reminders.sixtyDay && "60",
+                        settings.reminders.thirtyDay && "30",
+                        settings.reminders.sevenDay && "7",
+                      ]
+                        .filter(Boolean)
+                        .join(", ")} days before due date.`}
+                </p>
+              ) : (
+                <span className="skeleton block h-4 w-2/3" aria-hidden />
+              )}
               <Button onClick={() => setRemindersOpen(true)}>
                 Edit schedule
               </Button>
@@ -164,9 +184,16 @@ export function SettingsClient() {
                 <strong className="inline-flex items-center gap-2">
                   <Link2 size={16} /> Client viewers
                 </strong>
-                <span className="text-xs font-bold text-[var(--color-text-muted)]">
-                  {shareCount} active
-                </span>
+                {settings.loaded ? (
+                  <span className="text-xs font-bold text-[var(--color-text-muted)]">
+                    {shareCount} active
+                  </span>
+                ) : (
+                  <span
+                    className="skeleton inline-block h-4 w-14"
+                    aria-label="Loading count"
+                  />
+                )}
               </div>
               <p className="text-sm text-[var(--color-text-muted)]">
                 Tokenized URLs let clients see reports without exposing edit
@@ -180,26 +207,6 @@ export function SettingsClient() {
         ) : null}
       </Card>
 
-      {canManageAnyClient ? (
-        <Card>
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <Eyebrow>Tenancy</Eyebrow>
-              <h2 className="text-lg font-semibold tracking-tight mt-1 inline-flex items-center gap-2">
-                <Building2 size={18} /> Clients &amp; projects
-              </h2>
-              <p className="text-sm text-[var(--color-text-muted)] mt-1">
-                {clients.length} client{clients.length === 1 ? "" : "s"} ·{" "}
-                {projects.length} project
-                {projects.length === 1 ? "" : "s"} you can manage.
-              </p>
-            </div>
-            <Button variant="primary" onClick={() => setTenantsOpen(true)}>
-              Manage
-            </Button>
-          </div>
-        </Card>
-      ) : null}
 
       <Card>
         <div className="flex items-start justify-between gap-3">
@@ -224,11 +231,18 @@ export function SettingsClient() {
               <h2 className="text-lg font-semibold tracking-tight mt-1 inline-flex items-center gap-2">
                 <Building size={18} /> Buildings
               </h2>
-              <p className="text-sm text-[var(--color-text-muted)] mt-1">
-                {buildingsForCurrentProject.length} in{" "}
-                <strong>{currentProject.name}</strong>. Renaming cascades to
-                anchors and drawings.
-              </p>
+              {buildingsLoaded ? (
+                <p className="text-sm text-[var(--color-text-muted)] mt-1">
+                  {buildingsForCurrentProject.length} in{" "}
+                  <strong>{currentProject.name}</strong>. Renaming cascades to
+                  anchors and drawings.
+                </p>
+              ) : (
+                <span
+                  className="skeleton block h-4 w-2/3 mt-2"
+                  aria-label="Loading buildings"
+                />
+              )}
             </div>
             <Button onClick={() => setBuildingsOpen(true)}>Manage</Button>
           </div>
@@ -271,7 +285,7 @@ export function SettingsClient() {
           </div>
         </Card>
       ) : null}
-
+{/* 
       <Card>
         <div>
           <Eyebrow>Security</Eyebrow>
@@ -290,7 +304,7 @@ export function SettingsClient() {
           </li>
           <li>Middleware redirects unauthenticated requests to /login.</li>
         </ul>
-      </Card>
+      </Card> */}
 
       {isAdmin ? (
         <>
@@ -307,12 +321,6 @@ export function SettingsClient() {
             onClose={() => setShareOpen(false)}
           />
         </>
-      ) : null}
-      {canManageAnyClient ? (
-        <ManageTenantsDialog
-          open={tenantsOpen}
-          onClose={() => setTenantsOpen(false)}
-        />
       ) : null}
       <EditProfileDialog
         open={profileOpen}

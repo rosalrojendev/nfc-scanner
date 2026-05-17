@@ -37,6 +37,11 @@ export interface Anchor {
   nfcTag?: string;
   qrCode?: string;
   position?: { x: number; y: number };
+  // Soft-delete trio. Set when an admin/inspector removes the anchor; the
+  // record stays in the database so the activity feed can show who removed it.
+  deletedAt?: string | null;
+  deletedBy?: string | null;
+  deletedByName?: string | null;
 }
 
 export type InspectionResult = "pass" | "review" | "failed";
@@ -59,6 +64,9 @@ export interface Inspection {
   submittedBy?: string | null;
   submittedByName?: string | null;
   submittedByRole?: Role | null;
+  deletedAt?: string | null;
+  deletedBy?: string | null;
+  deletedByName?: string | null;
 }
 
 export interface DrawingPin {

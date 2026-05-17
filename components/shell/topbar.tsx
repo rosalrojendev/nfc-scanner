@@ -50,7 +50,7 @@ export function TopBar({ user }: { user: SessionUser }) {
             aria-hidden
           >
             <Image
-              src="/kra-logo.png"
+              src="/anchor-tag.png"
               alt=""
               fill
               sizes="44px"

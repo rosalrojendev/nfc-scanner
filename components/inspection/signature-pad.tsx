@@ -11,6 +11,7 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { uploadFiles } from "@/lib/uploadthing";
+import { timestampFilename } from "@/lib/utils";
 
 interface SignaturePadProps {
   value: string | null;
@@ -140,7 +141,9 @@ export function SignaturePad({
     try {
       const blob = await canvasToBlob(canvas);
       if (!blob) throw new Error("Could not capture signature.");
-      const file = new File([blob], "signature.png", { type: "image/png" });
+      const file = new File([blob], timestampFilename("sig", "png"), {
+        type: "image/png",
+      });
       const [uploaded] = await uploadFiles("avatarOrSignature", {
         files: [file],
       });

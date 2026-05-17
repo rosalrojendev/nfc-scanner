@@ -29,3 +29,13 @@ export function daysUntil(target: string | Date): number {
 export function uid(prefix = "id"): string {
   return `${prefix}-${Math.random().toString(36).slice(2, 9)}${Date.now().toString(36).slice(-4)}`;
 }
+
+// `prefix-YYYYMMDD-HHMMSS.ext` — short, sortable, UTC for cross-device
+// consistency. Used so uploaded blobs (signatures, etc.) don't all share the
+// same generic filename in the storage bucket.
+export function timestampFilename(prefix: string, ext = "png"): string {
+  const iso = new Date().toISOString();
+  const date = iso.slice(0, 10).replace(/-/g, "");
+  const time = iso.slice(11, 19).replace(/:/g, "");
+  return `${prefix}-${date}-${time}.${ext}`;
+}

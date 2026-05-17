@@ -13,6 +13,7 @@ import {
   removeAttachment,
   unpinAnchor,
   useDrawings,
+  useDrawingsLoaded,
 } from "@/lib/drawings-store";
 import type {
   AnchorStatus,
@@ -29,6 +30,11 @@ import {
   Trash2,
   Loader2,
   Paperclip,
+  Map as MapIcon,
+  Download,
+  ChevronDown,
+  Building2,
+  FolderOpen,
   X,
 } from "lucide-react";
 
@@ -54,10 +60,20 @@ export function DrawingsClient() {
   const router = useRouter();
   const anchors = useAnchors();
   const session = useSession();
-  const { currentProjectId } = useProjectContext();
+  const { currentProjectId, currentProject, clients } = useProjectContext();
+  const currentClient = React.useMemo(
+    () =>
+      currentProject
+        ? clients.find((c) => c.id === currentProject.clientId) ?? null
+        : null,
+    [clients, currentProject],
+  );
   const canUpload = can.uploadDrawings(session.role);
+  const canPin = can.pinDrawing(session.role);
+  const canDownload = can.downloadDrawing(session.role);
   const { notify } = useToast();
   const allDrawings = useDrawings();
+  const drawingsLoaded = useDrawingsLoaded();
   const drawings = React.useMemo(
     () =>
       currentProjectId
@@ -131,19 +147,54 @@ export function DrawingsClient() {
     <>
       <Card>
         <div className="flex items-start justify-between gap-3">
-          <div>
+          <div className="min-w-0">
             <Eyebrow>Drawing library</Eyebrow>
-            <h1 className="text-xl font-semibold tracking-tight mt-1">
+            {currentClient || currentProject ? (
+              <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                {currentClient ? (
+                  <span
+                    className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold"
+                    style={{
+                      background: "var(--color-primary-highlight)",
+                      color: "var(--color-primary)",
+                    }}
+                  >
+                    <Building2 size={12} />
+                    <span className="truncate max-w-[18ch]">
+                      {currentClient.name}
+                    </span>
+                  </span>
+                ) : null}
+                {currentProject ? (
+                  <span
+                    className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold bg-[var(--color-surface-2)] border border-[var(--color-border)] text-[var(--color-text-muted)]"
+                  >
+                    <FolderOpen size={12} />
+                    <span className="truncate max-w-[20ch]">
+                      {currentProject.name}
+                    </span>
+                  </span>
+                ) : null}
+              </div>
+            ) : null}
+            <h1 className="text-xl font-semibold tracking-tight mt-2">
               Roof plans linked to buildings and anchors
             </h1>
-            <p className="text-sm text-[var(--color-text-muted)] mt-1">
-              {drawings.length} drawings ·{" "}
-              {drawingsWithLiveStatus.reduce(
-                (n, d) => n + d.anchors.length,
-                0,
-              )}{" "}
-              anchors pinned
-            </p>
+            {drawingsLoaded ? (
+              <p className="text-sm text-[var(--color-text-muted)] mt-1">
+                {drawings.length} drawings ·{" "}
+                {drawingsWithLiveStatus.reduce(
+                  (n, d) => n + d.anchors.length,
+                  0,
+                )}{" "}
+                anchors pinned
+              </p>
+            ) : (
+              <span
+                className="skeleton block h-4 w-48 mt-2"
+                aria-label="Loading drawing count"
+              />
+            )}
           </div>
           {canUpload ? (
             <Button variant="primary" onClick={() => setUploadOpen(true)}>
@@ -153,29 +204,64 @@ export function DrawingsClient() {
         </div>
       </Card>
 
-      {drawingsWithLiveStatus.map((d) => (
-        <DrawingCard
-          key={d.id}
-          drawing={d}
-          canUpload={canUpload}
-          onPin={() => setPinDrawing(d)}
-          onUnpin={(anchorId) => {
-            unpinAnchor(d.id, anchorId);
-            notify(`${anchorId} unpinned.`);
-          }}
-          busyAttach={busyAttachOn === d.id}
-          onAttachDetail={(file) => handleAttachment(d.id, file, "detail")}
-          onAttachPdf={(file) => handleAttachment(d.id, file, "pdf")}
-          onRemoveAttachment={(attId) => {
-            if (!confirm("Remove this attachment?")) return;
-            removeAttachment(d.id, attId);
-            notify("Attachment removed.");
-          }}
-          onOpenAnchor={(id) =>
-            router.push(`/anchors/${encodeURIComponent(id)}`)
-          }
-        />
-      ))}
+      {!drawingsLoaded ? (
+        <div className="grid gap-3" aria-label="Loading drawings">
+          <span className="skeleton block h-40 rounded-2xl" />
+          <span className="skeleton block h-40 rounded-2xl" aria-hidden />
+        </div>
+      ) : drawingsWithLiveStatus.length === 0 ? (
+        <Card className="py-12 px-6 text-center items-center justify-items-center gap-4">
+          <div
+            className="w-14 h-14 rounded-2xl grid place-items-center"
+            style={{
+              background: "var(--color-primary-highlight)",
+              color: "var(--color-primary)",
+            }}
+            aria-hidden
+          >
+            <MapIcon size={26} />
+          </div>
+          <div className="grid gap-1 max-w-prose">
+            <strong className="text-base">No drawings yet</strong>
+            <p className="text-sm text-[var(--color-text-muted)]">
+              {canUpload
+                ? "Upload a roof plan to pin anchors and link drawings to inspections."
+                : "Roof plans uploaded by your team will appear here once they're added."}
+            </p>
+          </div>
+          {canUpload ? (
+            <Button variant="primary" onClick={() => setUploadOpen(true)}>
+              <FileUp size={16} /> Upload your first drawing
+            </Button>
+          ) : null}
+        </Card>
+      ) : (
+        drawingsWithLiveStatus.map((d) => (
+          <DrawingCard
+            key={d.id}
+            drawing={d}
+            canUpload={canUpload}
+            canPin={canPin}
+            canDownload={canDownload}
+            onPin={() => setPinDrawing(d)}
+            onUnpin={(anchorId) => {
+              unpinAnchor(d.id, anchorId);
+              notify(`${anchorId} unpinned.`);
+            }}
+            busyAttach={busyAttachOn === d.id}
+            onAttachDetail={(file) => handleAttachment(d.id, file, "detail")}
+            onAttachPdf={(file) => handleAttachment(d.id, file, "pdf")}
+            onRemoveAttachment={(attId) => {
+              if (!confirm("Remove this attachment?")) return;
+              removeAttachment(d.id, attId);
+              notify("Attachment removed.");
+            }}
+            onOpenAnchor={(id) =>
+              router.push(`/anchors/${encodeURIComponent(id)}`)
+            }
+          />
+        ))
+      )}
 
       {canUpload ? (
         <>
@@ -196,9 +282,126 @@ export function DrawingsClient() {
   );
 }
 
+// Solid color values for canvas export — kept theme-agnostic so the exported
+// PNG looks the same regardless of whether the user is in light or dark mode.
+const EXPORT_PIN_COLOR: Record<AnchorStatus, string> = {
+  pass: "#4d7d2e",
+  due: "#c4831a",
+  failed: "#b8333a",
+};
+
+function slugify(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function fileExtFor(attachment: DrawingAttachment): string {
+  const ct = attachment.contentType?.toLowerCase() ?? "";
+  if (ct.includes("png")) return "png";
+  if (ct.includes("jpeg") || ct.includes("jpg")) return "jpg";
+  if (ct.includes("webp")) return "webp";
+  const m = attachment.url.match(/\.([a-z0-9]+)(?:\?|$)/i);
+  return m ? m[1].toLowerCase() : "png";
+}
+
+function triggerBlobDownload(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  // Defer revoke so the browser has the chance to start the download.
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+async function downloadDrawing(
+  drawing: Drawing,
+  attachment: DrawingAttachment,
+  withPins: boolean,
+): Promise<void> {
+  const baseName = `plan-${slugify(drawing.building)}-${slugify(drawing.reference)}`;
+
+  if (!withPins) {
+    const res = await fetch(attachment.url);
+    const blob = await res.blob();
+    triggerBlobDownload(blob, `${baseName}.${fileExtFor(attachment)}`);
+    return;
+  }
+
+  const img = new Image();
+  img.crossOrigin = "anonymous";
+  await new Promise<void>((resolve, reject) => {
+    img.onload = () => resolve();
+    img.onerror = () => reject(new Error("Failed to load plan image"));
+    img.src = attachment.url;
+  });
+
+  const canvas = document.createElement("canvas");
+  canvas.width = img.naturalWidth;
+  canvas.height = img.naturalHeight;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Canvas 2D context unavailable");
+  ctx.drawImage(img, 0, 0);
+
+  const minSide = Math.min(canvas.width, canvas.height);
+  const pinR = Math.max(8, minSide / 80);
+  const ringR = pinR * 2.2;
+  const fontSize = Math.max(14, minSide / 60);
+  ctx.textBaseline = "top";
+  ctx.font = `bold ${fontSize}px system-ui, -apple-system, "Segoe UI", sans-serif`;
+
+  for (const pin of drawing.anchors) {
+    const px = (pin.x / PIN_REF_W) * canvas.width;
+    const py = (pin.y / PIN_REF_H) * canvas.height;
+    const color = EXPORT_PIN_COLOR[pin.status];
+
+    ctx.globalAlpha = 0.35;
+    ctx.beginPath();
+    ctx.arc(px, py, ringR, 0, Math.PI * 2);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = Math.max(2, pinR * 0.4);
+    ctx.stroke();
+
+    ctx.globalAlpha = 1;
+    ctx.beginPath();
+    ctx.arc(px, py, pinR, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.fill();
+
+    const padX = fontSize * 0.35;
+    const padY = fontSize * 0.2;
+    const labelX = px + ringR + 6;
+    const labelY = py - fontSize / 2;
+    const textWidth = ctx.measureText(pin.id).width;
+
+    ctx.fillStyle = "rgba(255, 255, 255, 0.92)";
+    ctx.fillRect(
+      labelX - padX,
+      labelY - padY,
+      textWidth + padX * 2,
+      fontSize + padY * 2,
+    );
+    ctx.fillStyle = "#1a212a";
+    ctx.fillText(pin.id, labelX, labelY);
+  }
+
+  await new Promise<void>((resolve) => {
+    canvas.toBlob((blob) => {
+      if (blob) triggerBlobDownload(blob, `${baseName}-with-pins.png`);
+      resolve();
+    }, "image/png");
+  });
+}
+
 function DrawingCard({
   drawing: d,
   canUpload,
+  canPin,
+  canDownload,
   onPin,
   onUnpin,
   busyAttach,
@@ -209,6 +412,8 @@ function DrawingCard({
 }: {
   drawing: Drawing;
   canUpload: boolean;
+  canPin: boolean;
+  canDownload: boolean;
   onPin: () => void;
   onUnpin: (anchorId: string) => void;
   busyAttach: boolean;
@@ -219,10 +424,52 @@ function DrawingCard({
 }) {
   const detailRef = React.useRef<HTMLInputElement | null>(null);
   const pdfRef = React.useRef<HTMLInputElement | null>(null);
+  const [downloading, setDownloading] = React.useState<
+    "with-pins" | "original" | null
+  >(null);
+  const [downloadMenuOpen, setDownloadMenuOpen] = React.useState(false);
+  const downloadWrapRef = React.useRef<HTMLDivElement | null>(null);
+
+  React.useEffect(() => {
+    if (!downloadMenuOpen) return;
+    function onDocPointer(e: MouseEvent) {
+      if (
+        downloadWrapRef.current &&
+        !downloadWrapRef.current.contains(e.target as Node)
+      ) {
+        setDownloadMenuOpen(false);
+      }
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setDownloadMenuOpen(false);
+    }
+    document.addEventListener("mousedown", onDocPointer);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDocPointer);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [downloadMenuOpen]);
   const planAttachment = (d.attachments ?? []).find((a) => a.kind === "plan");
+  const planIsImage =
+    planAttachment != null && !isPdfAttachment(planAttachment);
   const otherAttachments = (d.attachments ?? []).filter(
     (a) => a.kind !== "plan",
   );
+
+  async function handleDownload(mode: "with-pins" | "original") {
+    if (!planAttachment) return;
+    setDownloading(mode);
+    try {
+      await downloadDrawing(d, planAttachment, mode === "with-pins");
+    } catch {
+      // Silent — most failures are CORS-related. Falling back to "open in new
+      // tab" would surprise users mid-click, so we just no-op and let them
+      // retry or right-click → save from the inline image.
+    } finally {
+      setDownloading(null);
+    }
+  }
 
   return (
     <Card>
@@ -250,14 +497,14 @@ function DrawingCard({
             drawing={d}
             attachment={planAttachment}
             onOpenAnchor={onOpenAnchor}
-            onUnpin={canUpload ? onUnpin : undefined}
+            onUnpin={canPin ? onUnpin : undefined}
           />
         )
       ) : (
         <DrawingSvg
           drawing={d}
           onOpenAnchor={onOpenAnchor}
-          onUnpin={canUpload ? onUnpin : undefined}
+          onUnpin={canPin ? onUnpin : undefined}
         />
       )}
 
@@ -269,55 +516,108 @@ function DrawingCard({
         />
       ) : null}
 
-      {canUpload ? (
+      {canPin || canUpload || canDownload ? (
         <div className="flex flex-wrap gap-2">
-          <Button variant="primary" onClick={onPin}>
-            <Plus size={16} /> Pin anchor
-          </Button>
-          <Button
-            onClick={() => detailRef.current?.click()}
-            disabled={busyAttach}
-          >
-            {busyAttach ? (
-              <Loader2 size={16} className="animate-spin" />
-            ) : (
-              <ImagePlus size={16} />
-            )}
-            Add detail sheet
-          </Button>
-          <Button
-            onClick={() => pdfRef.current?.click()}
-            disabled={busyAttach}
-          >
-            {busyAttach ? (
-              <Loader2 size={16} className="animate-spin" />
-            ) : (
-              <FileText size={16} />
-            )}
-            Attach PDF
-          </Button>
-          <input
-            ref={detailRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) onAttachDetail(f);
-              e.target.value = "";
-            }}
-          />
-          <input
-            ref={pdfRef}
-            type="file"
-            accept="application/pdf"
-            className="hidden"
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) onAttachPdf(f);
-              e.target.value = "";
-            }}
-          />
+          {canPin ? (
+            <Button variant="primary" onClick={onPin}>
+              <Plus size={16} /> Pin anchor
+            </Button>
+          ) : null}
+          {canDownload && planIsImage ? (
+            <div className="relative inline-flex" ref={downloadWrapRef}>
+              <Button
+                onClick={() => handleDownload("with-pins")}
+                disabled={downloading !== null}
+                className="rounded-r-none border-r-0 pr-3"
+              >
+                {downloading === "with-pins" ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <Download size={16} />
+                )}
+                {downloading === "original" ? "Downloading original…" : "Download with pins"}
+              </Button>
+              <Button
+                onClick={() => setDownloadMenuOpen((o) => !o)}
+                aria-label="More download options"
+                aria-haspopup="menu"
+                aria-expanded={downloadMenuOpen}
+                disabled={downloading !== null}
+                className="rounded-l-none px-2"
+              >
+                <ChevronDown size={14} />
+              </Button>
+              {downloadMenuOpen ? (
+                <div
+                  role="menu"
+                  className="absolute top-full right-0 mt-1 z-20 min-w-[220px] p-1 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] shadow-[var(--shadow-md)]"
+                >
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setDownloadMenuOpen(false);
+                      handleDownload("original");
+                    }}
+                    className="w-full text-left px-3 py-2 rounded-xl text-sm font-semibold hover:bg-[var(--color-surface-2)] inline-flex items-center gap-2 text-[var(--color-text)]"
+                  >
+                    <Download size={14} /> Download original
+                    <span className="ml-auto text-[10px] font-bold uppercase tracking-wider text-[var(--color-text-muted)]">
+                      no pins
+                    </span>
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+          {canUpload ? (
+            <>
+              <Button
+                onClick={() => detailRef.current?.click()}
+                disabled={busyAttach}
+              >
+                {busyAttach ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <ImagePlus size={16} />
+                )}
+                Add detail sheet
+              </Button>
+              <Button
+                onClick={() => pdfRef.current?.click()}
+                disabled={busyAttach}
+              >
+                {busyAttach ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <FileText size={16} />
+                )}
+                Attach PDF
+              </Button>
+              <input
+                ref={detailRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) onAttachDetail(f);
+                  e.target.value = "";
+                }}
+              />
+              <input
+                ref={pdfRef}
+                type="file"
+                accept="application/pdf"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) onAttachPdf(f);
+                  e.target.value = "";
+                }}
+              />
+            </>
+          ) : null}
         </div>
       ) : null}
     </Card>
