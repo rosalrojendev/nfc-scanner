@@ -87,11 +87,39 @@ export function InspectionsClient() {
     return m;
   }, [anchors]);
 
+  // Build the dropdown from every place an inspector name surfaces in the
+  // current project scope, so the filter never hides someone the user can
+  // actually see referenced as an inspector elsewhere in the app:
+  //   - active inspections (the obvious source),
+  //   - anchor.inspector (sticky; survives even if the inspection was
+  //     soft-deleted, which would otherwise drop the name from the list),
+  //   - the logged-in user's display name (so "filter to me" always works,
+  //     even on a fresh project where they haven't saved one yet).
+  // Dedup is case-insensitive, preserving the first-seen casing.
+  const anchorsInScope = React.useMemo(
+    () =>
+      currentProjectId
+        ? anchors.filter((a) => a.projectId === currentProjectId)
+        : anchors,
+    [anchors, currentProjectId],
+  );
+
   const inspectorOptions = React.useMemo(() => {
-    const set = new Set<string>();
-    for (const i of inspections) if (i.inspector) set.add(i.inspector);
-    return Array.from(set).sort();
-  }, [inspections]);
+    const seen = new Map<string, string>();
+    const addName = (raw: string | null | undefined) => {
+      if (!raw) return;
+      const trimmed = raw.trim();
+      if (!trimmed) return;
+      const key = trimmed.toLowerCase();
+      if (!seen.has(key)) seen.set(key, trimmed);
+    };
+    for (const i of inspections) addName(i.inspector);
+    for (const a of anchorsInScope) addName(a.inspector);
+    if (session.name) addName(session.name);
+    return Array.from(seen.values()).sort((a, b) =>
+      a.localeCompare(b, undefined, { sensitivity: "base" }),
+    );
+  }, [inspections, anchorsInScope, session.name]);
 
   const filtered = React.useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -103,7 +131,11 @@ export function InspectionsClient() {
       )
       .filter((i) => {
         if (result !== "all" && i.result !== result) return false;
-        if (inspectorFilter !== "__all" && i.inspector !== inspectorFilter)
+        if (
+          inspectorFilter !== "__all" &&
+          (i.inspector || "").trim().toLowerCase() !==
+            inspectorFilter.trim().toLowerCase()
+        )
           return false;
         if (!q) return true;
         return (
