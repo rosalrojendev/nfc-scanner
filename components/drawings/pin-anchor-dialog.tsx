@@ -5,7 +5,6 @@ import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Eyebrow } from "@/components/ui/card";
 import { useToast } from "@/components/ui/toast";
-import { Avatar } from "@/components/ui/avatar";
 import { pinAnchor } from "@/lib/drawings-store";
 import { useAnchors } from "@/lib/store";
 import type {
@@ -39,15 +38,30 @@ export function PinAnchorDialog({
   const { notify } = useToast();
   const anchors = useAnchors();
   const [chosen, setChosen] = React.useState<string | null>(null);
+  const [showAll, setShowAll] = React.useState(false);
 
   React.useEffect(() => {
-    if (!open) setChosen(null);
+    if (!open) {
+      setChosen(null);
+      setShowAll(false);
+    }
   }, [open]);
+
+  // Default to anchors that belong to the same project as this drawing. If
+  // the drawing has no projectId (legacy/imported data), fall back to the
+  // full list so we don't accidentally show an empty roster.
+  const projectScoped = React.useMemo(() => {
+    if (!drawing.projectId) return anchors;
+    return anchors.filter((a) => a.projectId === drawing.projectId);
+  }, [anchors, drawing.projectId]);
+
+  const visible = showAll ? anchors : projectScoped;
+  const otherProjectCount = anchors.length - projectScoped.length;
 
   // Anchors that aren't already pinned on this drawing first
   const sorted = React.useMemo(() => {
     const pinnedIds = new Set(drawing.anchors.map((a) => a.id));
-    return anchors
+    return visible
       .slice()
       .sort((a, b) => {
         const ap = pinnedIds.has(a.id) ? 1 : 0;
@@ -55,7 +69,7 @@ export function PinAnchorDialog({
         if (ap !== bp) return ap - bp;
         return a.id.localeCompare(b.id);
       });
-  }, [anchors, drawing.anchors]);
+  }, [visible, drawing.anchors]);
 
   function place(coords: { x: number; y: number }) {
     if (!chosen) return;
@@ -83,15 +97,47 @@ export function PinAnchorDialog({
           <p className="text-sm text-[var(--color-text-muted)]">
             Step 1 — pick an anchor to pin on this drawing.
           </p>
+          {drawing.projectId && otherProjectCount > 0 ? (
+            <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-[var(--color-text-muted)]">
+              <span>
+                Showing <strong>{projectScoped.length}</strong> anchor
+                {projectScoped.length === 1 ? "" : "s"} from this project
+                {showAll
+                  ? ` · ${otherProjectCount} from other projects`
+                  : null}
+                .
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowAll((v) => !v)}
+                className="font-semibold text-[var(--color-primary)] hover:underline"
+              >
+                {showAll
+                  ? "Show only this project"
+                  : `Show all (${anchors.length})`}
+              </button>
+            </div>
+          ) : null}
           <div className="grid gap-2 max-h-[50vh] overflow-auto -mx-1 px-1">
-            {sorted.map((a) => (
-              <RosterRow
-                key={a.id}
-                anchor={a}
-                pinned={drawing.anchors.some((p) => p.id === a.id)}
-                onPick={() => setChosen(a.id)}
-              />
-            ))}
+            {sorted.length === 0 ? (
+              <p className="text-sm text-[var(--color-text-muted)] py-4 text-center">
+                No anchors found in this project yet. Add one from the Anchors
+                page, or pick from another project.
+              </p>
+            ) : (
+              sorted.map((a) => (
+                <RosterRow
+                  key={a.id}
+                  anchor={a}
+                  pinned={drawing.anchors.some((p) => p.id === a.id)}
+                  foreignProject={
+                    !!drawing.projectId &&
+                    a.projectId !== drawing.projectId
+                  }
+                  onPick={() => setChosen(a.id)}
+                />
+              ))
+            )}
           </div>
         </>
       ) : (
@@ -112,10 +158,12 @@ export function PinAnchorDialog({
 function RosterRow({
   anchor,
   pinned,
+  foreignProject,
   onPick,
 }: {
   anchor: Anchor;
   pinned: boolean;
+  foreignProject: boolean;
   onPick: () => void;
 }) {
   return (
@@ -140,6 +188,18 @@ function RosterRow({
           {anchor.building}
         </span>
       </div>
+      {foreignProject ? (
+        <span
+          className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full"
+          style={{
+            background:
+              "color-mix(in srgb, var(--color-text-muted) 14%, transparent)",
+            color: "var(--color-text-muted)",
+          }}
+        >
+          Other project
+        </span>
+      ) : null}
       {pinned ? (
         <span
           className="text-xs font-bold inline-flex items-center gap-1"
